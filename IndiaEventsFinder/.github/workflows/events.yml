@@ -1,0 +1,46 @@
+name: IndiaEventsFinder Weekly Run
+
+on:
+  schedule:
+    # Every Monday at 6:00 AM IST (00:30 UTC)
+    - cron: '30 0 * * 1'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  find-events:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r IndiaEventsFinder/requirements.txt
+
+      - name: Run scheduler
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_CX: ${{ secrets.GOOGLE_CX }}
+        working-directory: IndiaEventsFinder
+        run: python scheduler.py
+
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: events-${{ github.run_number }}
+          path: |
+            IndiaEventsFinder/data/events_master.json
+            IndiaEventsFinder/data/scheduler.log
+          retention-days: 90
+
+      - name: Commit updated master file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add IndiaEventsFinder/data/events_master.json
+          git diff --cached --quiet || git commit -m "chore: update events_master.json [skip ci]"
+          git push

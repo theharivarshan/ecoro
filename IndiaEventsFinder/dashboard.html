@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IndiaEventsFinder Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --hackathon: #f472b6;
+    --workshop: #a78bfa;
+    --conference: #34d399;
+    --fest: #fbbf24;
+    --seminar: #fb923c;
+    --competition: #f87171;
+    --other: #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  header h1 {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+
+  header p { color: var(--muted); }
+
+  .controls {
+    max-width: 1000px;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .controls input[type="text"],
+  .controls input[type="file"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+
+  .controls input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-btn {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    color: #fff;
+    border-color: var(--accent);
+    background: rgba(56, 189, 248, 0.15);
+  }
+
+  .sort-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.85rem;
+  }
+
+  .stats {
+    max-width: 1000px;
+    margin: 0 auto 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .grid {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color 0.2s;
+    border-top: 3px solid var(--other);
+  }
+
+  .card:hover { border-color: var(--accent); }
+
+  .card[data-type="hackathon"]   { border-top-color: var(--hackathon); }
+  .card[data-type="workshop"]    { border-top-color: var(--workshop); }
+  .card[data-type="conference"]  { border-top-color: var(--conference); }
+  .card[data-type="fest"]        { border-top-color: var(--fest); }
+  .card[data-type="seminar"]     { border-top-color: var(--seminar); }
+  .card[data-type="competition"] { border-top-color: var(--competition); }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 1rem;
+    font-weight: 500;
+  }
+
+  .badge-type { background: rgba(56, 189, 248, 0.15); color: var(--accent); }
+  .badge-source { background: rgba(148, 163, 184, 0.15); color: var(--muted); }
+  .badge-institute { background: rgba(52, 211, 153, 0.15); color: var(--conference); }
+
+  .card-snippet {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.5;
+    flex: 1;
+  }
+
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+
+  .card-date { font-size: 0.75rem; color: var(--muted); }
+
+  .card-link {
+    padding: 0.35rem 0.85rem;
+    border-radius: 0.4rem;
+    background: var(--accent);
+    color: var(--bg);
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+
+  .card-link:hover { opacity: 0.85; }
+
+  .empty {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: var(--muted);
+  }
+
+  .empty p { margin-top: 0.5rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>IndiaEventsFinder</h1>
+  <p>Events at top Indian institutes</p>
+</header>
+
+<div class="controls">
+  <input type="file" id="fileInput" accept=".json" title="Load events JSON">
+  <input type="text" id="searchBox" placeholder="Search by title, institute, keyword...">
+  <select class="sort-select" id="sortSelect">
+    <option value="score">Sort by Relevance</option>
+    <option value="date">Sort by Date Found</option>
+    <option value="title">Sort by Title</option>
+  </select>
+</div>
+
+<div class="controls filter-buttons" id="filterButtons">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="hackathon">Hackathon</button>
+  <button class="filter-btn" data-filter="workshop">Workshop</button>
+  <button class="filter-btn" data-filter="conference">Conference</button>
+  <button class="filter-btn" data-filter="fest">Fest</button>
+  <button class="filter-btn" data-filter="seminar">Seminar</button>
+  <button class="filter-btn" data-filter="competition">Competition</button>
+  <button class="filter-btn" data-filter="other">Other</button>
+</div>
+
+<div class="stats" id="stats"></div>
+<div class="grid" id="grid"></div>
+
+<script>
+let events = [];
+let activeFilter = 'all';
+
+const grid = document.getElementById('grid');
+const stats = document.getElementById('stats');
+const searchBox = document.getElementById('searchBox');
+const sortSelect = document.getElementById('sortSelect');
+const fileInput = document.getElementById('fileInput');
+
+// Try to auto-load data/events.json (works when served locally)
+fetch('data/events.json')
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(data => { events = data; render(); })
+  .catch(() => {
+    // Also try events_master.json
+    fetch('data/events_master.json')
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => { if (data.length) { events = data; render(); } })
+      .catch(() => {});
+  });
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      events = JSON.parse(ev.target.result);
+      render();
+    } catch { alert('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+});
+
+searchBox.addEventListener('input', render);
+sortSelect.addEventListener('change', render);
+
+document.getElementById('filterButtons').addEventListener('click', e => {
+  if (!e.target.classList.contains('filter-btn')) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  activeFilter = e.target.dataset.filter;
+  render();
+});
+
+function linkLabel(url) {
+  if (url.includes('linkedin.com')) return 'View on LinkedIn';
+  if (url.includes('unstop.com')) return 'View on Unstop';
+  if (url.includes('devfolio.co')) return 'View on Devfolio';
+  if (url.includes('townscript.com')) return 'View on Townscript';
+  if (url.includes('insider.in')) return 'View on Insider';
+  return 'View Event';
+}
+
+function render() {
+  const query = searchBox.value.toLowerCase();
+  let filtered = events.filter(ev => {
+    if (activeFilter !== 'all' && ev.event_type !== activeFilter) return false;
+    if (query) {
+      const hay = `${ev.title} ${ev.institute} ${ev.snippet} ${ev.source}`.toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
+    return true;
+  });
+
+  const sort = sortSelect.value;
+  if (sort === 'score') filtered.sort((a, b) => (b.score || 0) - (a.score || 0));
+  else if (sort === 'date') filtered.sort((a, b) => (b.found_on || '').localeCompare(a.found_on || ''));
+  else if (sort === 'title') filtered.sort((a, b) => a.title.localeCompare(b.title));
+
+  stats.textContent = `Showing ${filtered.length} of ${events.length} events`;
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">
+      <h2>No events found</h2>
+      <p>${events.length ? 'Try adjusting your filters.' : 'Load a JSON file using the file picker above.'}</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(ev => `
+    <div class="card" data-type="${ev.event_type}">
+      <div class="card-title">${esc(ev.title)}</div>
+      <div class="card-meta">
+        <span class="badge badge-type">${ev.event_type}</span>
+        <span class="badge badge-source">${ev.source}</span>
+        ${ev.institute ? `<span class="badge badge-institute">${esc(ev.institute)}</span>` : ''}
+      </div>
+      <div class="card-snippet">${esc(ev.snippet)}</div>
+      <div class="card-footer">
+        <span class="card-date">${ev.date_raw || ev.found_on || ''}</span>
+        <a class="card-link" href="${esc(ev.url)}" target="_blank" rel="noopener">${linkLabel(ev.url)}</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
