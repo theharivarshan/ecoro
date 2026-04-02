@@ -244,14 +244,31 @@ def search_events(
 
     try:
         resp = requests.get(SEARCH_ENDPOINT, params=params, timeout=15)
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            # Try to extract Google's JSON error message
+            try:
+                err_data = resp.json()
+                err_msg = err_data.get("error", {}).get("message", resp.text[:200])
+                err_code = err_data.get("error", {}).get("code", resp.status_code)
+            except Exception:
+                err_msg = resp.text[:200]
+                err_code = resp.status_code
+
+            if resp.status_code == 429 or "quota" in str(err_msg).lower():
+                console.print("[red]API quota exceeded — stopping.[/red]")
+                sys.exit(1)
+            elif resp.status_code == 403:
+                console.print(
+                    f"[red]API returned 403 Forbidden: {err_msg}[/red]\n"
+                    "[yellow]Ensure 'Custom Search API' is enabled at "
+                    "https://console.cloud.google.com/apis/library/customsearch.googleapis.com\n"
+                    "and your API key has permission to call it.[/yellow]"
+                )
+                sys.exit(1)
+            else:
+                console.print(f"[red]API error {err_code}: {err_msg}[/red]")
+            return []
         data = resp.json()
-    except requests.exceptions.HTTPError as exc:
-        if resp.status_code == 429:
-            console.print("[red]API quota exceeded — stopping.[/red]")
-            sys.exit(1)
-        console.print(f"[red]HTTP error: {exc}[/red]")
-        return []
     except requests.exceptions.RequestException as exc:
         console.print(f"[red]Network error: {exc}[/red]")
         return []
@@ -429,6 +446,220 @@ def build_query_plan(
 
 
 # ---------------------------------------------------------------------------
+# API check
+# ---------------------------------------------------------------------------
+
+def check_api_credentials() -> None:
+    """Test Google CSE API credentials with a single lightweight query."""
+    console.print(Panel("[bold]API Credential Check[/bold]", border_style="cyan"))
+
+    if not API_KEY:
+        console.print("[red]GOOGLE_API_KEY is not set in .env[/red]")
+        return
+    if not CX:
+        console.print("[red]GOOGLE_CX is not set in .env[/red]")
+        return
+
+    console.print(f"  API Key: {API_KEY[:10]}...{API_KEY[-4:]}")
+    console.print(f"  CX:      {CX}")
+    console.print()
+
+    try:
+        resp = requests.get(SEARCH_ENDPOINT, params={
+            "key": API_KEY, "cx": CX, "q": "test", "num": 1,
+        }, timeout=15)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            total = data.get("searchInformation", {}).get("totalResults", "?")
+            console.print(f"[green]API is working! Test query returned {total} results.[/green]")
+            console.print("[green]You're all set. Run: python events_finder.py[/green]")
+        else:
+            # Try JSON error first, fall back to status code description
+            try:
+                err = resp.json().get("error", {})
+                err_msg = err.get("message", "Unknown error")
+            except Exception:
+                err_msg = {
+                    400: "Bad request — check your CX (Search Engine ID)",
+                    403: "Forbidden — Custom Search API not enabled or key lacks permission",
+                    404: "Not found — check your CX (Search Engine ID)",
+                    429: "Rate limit exceeded — wait and try again",
+                }.get(resp.status_code, f"HTTP {resp.status_code}")
+            console.print(f"[red]API error {resp.status_code}: {err_msg}[/red]")
+
+            if resp.status_code == 403:
+                console.print(
+                    "\n[yellow]How to fix 403 Forbidden:[/yellow]\n"
+                    "  1. Go to https://console.cloud.google.com/apis/library/customsearch.googleapis.com\n"
+                    "  2. Click [bold]Enable[/bold] for 'Custom Search API'\n"
+                    "  3. Make sure your API key is unrestricted or allows Custom Search API\n"
+                    "  4. Wait a minute and try again"
+                )
+    except requests.exceptions.RequestException as exc:
+        console.print(f"[red]Network error: {exc}[/red]")
+
+
+# ---------------------------------------------------------------------------
+# Demo mode
+# ---------------------------------------------------------------------------
+
+DEMO_EVENTS = [
+    {
+        "title": "Smart India Hackathon 2026 - Grand Finale at IIT Bombay",
+        "url": "https://unstop.com/hackathons/smart-india-hackathon-2026",
+        "source": "unstop",
+        "institute": "IIT Bombay",
+        "event_type": "hackathon",
+        "snippet": "India's largest open innovation platform. 48-hour hackathon, "
+                   "1000+ teams, 50+ problem statements. Register by March 15, 2026.",
+        "date_raw": "22 March 2026",
+        "found_on": date.today().isoformat(),
+        "score": 23,
+    },
+    {
+        "title": "TechFest 2026 - IIT Bombay Annual Technology Festival",
+        "url": "https://techfest.org/2026",
+        "source": "institute_website",
+        "institute": "IIT Bombay",
+        "event_type": "fest",
+        "snippet": "Asia's largest science and technology festival. Competitions, "
+                   "exhibitions, lectures, and workshops. December 2025.",
+        "date_raw": "17 December 2025",
+        "found_on": date.today().isoformat(),
+        "score": 20,
+    },
+    {
+        "title": "DevSprint - BITS Pilani Hackathon on Devfolio",
+        "url": "https://devfolio.co/devsprint-bits",
+        "source": "devfolio",
+        "institute": "BITS Pilani",
+        "event_type": "hackathon",
+        "snippet": "36-hour hackathon at BITS Pilani Goa campus. Build innovative "
+                   "solutions. Prizes worth INR 5,00,000. Open to all students.",
+        "date_raw": "5 April 2026",
+        "found_on": date.today().isoformat(),
+        "score": 18,
+    },
+    {
+        "title": "AI/ML Workshop Series - IISc Bangalore",
+        "url": "https://iisc.ac.in/events/aiml-workshop-2026",
+        "source": "institute_website",
+        "institute": "IISc Bangalore",
+        "event_type": "workshop",
+        "snippet": "Hands-on workshop on deep learning and LLMs. Industry experts "
+                   "from Google and Microsoft. Registration open.",
+        "date_raw": "10 April 2026",
+        "found_on": date.today().isoformat(),
+        "score": 20,
+    },
+    {
+        "title": "International Conference on Data Science - IIT Madras",
+        "url": "https://linkedin.com/events/icds-iitm-2026",
+        "source": "linkedin",
+        "institute": "IIT Madras",
+        "event_type": "conference",
+        "snippet": "3-day international conference on data science and machine "
+                   "learning. Paper submissions open until Feb 28, 2026.",
+        "date_raw": "15 May 2026",
+        "found_on": date.today().isoformat(),
+        "score": 18,
+    },
+    {
+        "title": "Entrepreneurship Summit 2026 - IIM Ahmedabad",
+        "url": "https://insider.in/e-summit-iima-2026",
+        "source": "insider",
+        "institute": "IIM Ahmedabad",
+        "event_type": "summit",
+        "snippet": "Annual E-Summit featuring startup pitches, VC panels, and "
+                   "networking. Keynote by leading Indian founders.",
+        "date_raw": "20 February 2026",
+        "found_on": date.today().isoformat(),
+        "score": 15,
+    },
+    {
+        "title": "Pragyan 2026 - NIT Trichy Technical Festival",
+        "url": "https://townscript.com/pragyan-nitt-2026",
+        "source": "townscript",
+        "institute": "NIT Trichy",
+        "event_type": "fest",
+        "snippet": "South India's premier technical festival. Robotics, coding, "
+                   "quizzing, and guest lectures. Free for all college students.",
+        "date_raw": "7 March 2026",
+        "found_on": date.today().isoformat(),
+        "score": 15,
+    },
+    {
+        "title": "Cybersecurity Seminar - IIT Delhi",
+        "url": "https://iitd.ac.in/events/cybersec-seminar",
+        "source": "institute_website",
+        "institute": "IIT Delhi",
+        "event_type": "seminar",
+        "snippet": "Seminar on emerging cybersecurity threats and defenses. "
+                   "Guest speaker from CERT-In. Open to public.",
+        "date_raw": "12 April 2026",
+        "found_on": date.today().isoformat(),
+        "score": 15,
+    },
+    {
+        "title": "Case Study Competition - IIM Bangalore",
+        "url": "https://unstop.com/competitions/case-iimb-2026",
+        "source": "unstop",
+        "institute": "IIM Bangalore",
+        "event_type": "competition",
+        "snippet": "Inter-college case study competition. Solve real-world business "
+                   "problems. Cash prizes and PPIs for winners.",
+        "date_raw": "25 March 2026",
+        "found_on": date.today().isoformat(),
+        "score": 18,
+    },
+    {
+        "title": "VIT Riviera 2026 - International Techno-Cultural Fest",
+        "url": "https://vit.ac.in/riviera2026",
+        "source": "institute_website",
+        "institute": "VIT Vellore",
+        "event_type": "fest",
+        "snippet": "VIT's flagship fest with 50+ events across tech, cultural, "
+                   "and sports categories. 30,000+ participants expected.",
+        "date_raw": "1 March 2026",
+        "found_on": date.today().isoformat(),
+        "score": 15,
+    },
+]
+
+
+def run_demo() -> None:
+    """Show tool capabilities with built-in sample data."""
+    console.print(Panel(
+        "[bold cyan]IndiaEventsFinder — Demo Mode[/bold cyan]\n"
+        "Showing sample data to demonstrate tool capabilities.\n"
+        "[dim]No API calls are made in demo mode.[/dim]",
+        border_style="cyan",
+    ))
+
+    events = DEMO_EVENTS.copy()
+    events.sort(key=lambda e: e.get("score", 0), reverse=True)
+
+    print_results_table(events)
+    print_summary(events)
+
+    # Save demo output
+    json_path = DATA_DIR / "events_demo.json"
+    csv_path = DATA_DIR / "events_demo.csv"
+    save_json(events, json_path)
+    save_csv(events, csv_path)
+
+    console.print(
+        "\n[bold yellow]This was demo data.[/bold yellow] "
+        "To search live events:\n"
+        "  1. Enable Custom Search API: "
+        "https://console.cloud.google.com/apis/library/customsearch.googleapis.com\n"
+        "  2. Run: [bold]python events_finder.py --check-api[/bold] to verify\n"
+        "  3. Run: [bold]python events_finder.py[/bold] for live results\n"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -446,11 +677,26 @@ def main() -> None:
                         help="Max number of API queries to run (default: 35)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print queries without calling the API")
+    parser.add_argument("--check-api", action="store_true",
+                        help="Test API credentials and exit")
+    parser.add_argument("--demo", action="store_true",
+                        help="Run with sample data (no API needed)")
     args = parser.parse_args()
+
+    # API connectivity check
+    if args.check_api:
+        check_api_credentials()
+        sys.exit(0)
+
+    # Demo mode — show tool capabilities with sample data
+    if args.demo:
+        run_demo()
+        sys.exit(0)
 
     if not args.dry_run and (not API_KEY or not CX):
         console.print("[red]Missing GOOGLE_API_KEY or GOOGLE_CX in .env file.[/red]")
         console.print("Copy .env.example to .env and fill in your credentials.")
+        console.print("[yellow]Tip: Run with --demo to see the tool in action without API keys.[/yellow]")
         sys.exit(1)
 
     console.print(Panel(

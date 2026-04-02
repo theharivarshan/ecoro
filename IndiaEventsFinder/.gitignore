@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+data/events.json
+data/events.csv
+data/events_demo.json
+data/events_demo.csv
+data/scheduler.log
