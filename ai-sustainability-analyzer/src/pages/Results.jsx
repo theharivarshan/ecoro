@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { simulateImprovedScore } from '../services/scoringEngine';
-import { formatCO2, formatINR, getCategoryLabel, getCategoryIcon, getReportDate } from '../services/helpers';
+import { formatCO2, getCategoryLabel, getCategoryIcon, getReportDate } from '../services/helpers';
 import REAL_DATA from '../data/realWorldData';
 import ScoreGauge from '../components/ScoreGauge';
 import CategoryBreakdown from '../components/CategoryBreakdown';
@@ -27,7 +27,7 @@ export default function Results() {
 
   const improvements = [
     { key: 'bucket_bath', label: 'Switch to bucket bath', saving: `Saves ~${Math.round((REAL_DATA.MEDIUM_SHOWER_10MIN_LITRES - REAL_DATA.BUCKET_BATH_LITRES) * 365)} litres/year` },
-    { key: 'reduce_ac', label: 'Reduce AC usage by half', saving: `Saves ~${formatINR((Number(answers.acHoursPerWeek) || 0) / 2 * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.ELECTRICITY_TARIFF_INR_PER_KWH * 52)}/year` },
+    { key: 'reduce_ac', label: 'Reduce AC usage by half', saving: `Cuts ~${Math.round((Number(answers.acHoursPerWeek) || 0) / 2 * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.INDIA_GRID_CO2_INTENSITY * 52)} kg CO₂/year` },
     { key: 'use_public_transport', label: 'Switch to public transport', saving: `Cuts ~${Math.round(m.totalTransportCO2KgYear * 0.6)} kg CO2/year` },
   ];
 

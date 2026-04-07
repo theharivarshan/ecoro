@@ -236,7 +236,11 @@ function scoreLifestyle(a) {
   else if (ff === 'seasonal') score -= 3;
   else if (ff === 'rarely') score += 5;
 
-  if (a.standbyDevices === true || a.standbyDevices === 'yes') score -= 8;
+  // Clothes drying (replaces standbyDevices)
+  const cd = a.clothesDrying;
+  if (cd === 'sun_dry') score += 5;
+  else if (cd === 'machine_dryer') score -= 10;
+  else if (cd === 'mix') score -= 4;
 
   return clamp(score);
 }
@@ -318,9 +322,9 @@ function buildImpactSummary(a) {
   }
 
   if (acHrs > 0) {
-    const weeklyCost = (acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.ELECTRICITY_TARIFF_INR_PER_KWH).toFixed(0);
+    const weeklyKwh = (acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR).toFixed(1);
     const weeklyCO2 = (acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.INDIA_GRID_CO2_INTENSITY).toFixed(1);
-    impacts.push(`Your AC usage of ${acHrs} hrs/week costs ~₹${weeklyCost}/week and emits ~${weeklyCO2} kg CO₂/week`);
+    impacts.push(`Your AC usage of ${acHrs} hrs/week consumes ~${weeklyKwh} kWh and emits ~${weeklyCO2} kg CO₂/week`);
   }
 
   const bt = a.bathType;

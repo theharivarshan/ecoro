@@ -10,7 +10,7 @@ JSON structure required:
   "summary": "string (2-3 sentences with real numbers from their profile)",
   "topConcerns": ["string with data", "string with data", "string with data"],
   "immediateActions": [
-    { "action": "string", "impact": "string with real data", "effort": "low|medium|high", "estimatedSaving": "string e.g. saves ~₹800/month or cuts 240kg CO₂/year" }
+    { "action": "string", "impact": "string with real data", "effort": "low|medium|high", "estimatedSaving": "string e.g. cuts 240kg CO₂/year or saves 5000 litres water" }
   ],
   "weeklyImprovements": [
     { "habit": "string", "impact": "string with real data" }
@@ -65,5 +65,5 @@ TOP WEAKNESSES: ${weaknesses.map(w => `${w.category}(${w.score})`).join(', ')}
 KEY IMPACTS:
 ${impactSummary.map(i => `- ${i}`).join('\n')}
 
-Provide personalized, actionable recommendations with real Indian data references. Be specific with numbers — mention ₹ savings, kg CO₂ reductions, and litre savings.`;
+Provide personalized, actionable recommendations with real Indian data references. Focus on environmental impact — mention kg CO₂ reductions, litres of water saved, and waste diverted. Do NOT mention monetary costs or rupee amounts.`;
 }
