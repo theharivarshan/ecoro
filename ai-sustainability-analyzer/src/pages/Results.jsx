@@ -8,7 +8,7 @@ import ScoreGauge from '../components/ScoreGauge';
 import CategoryBreakdown from '../components/CategoryBreakdown';
 import AnnualProjectionCard from '../components/AnnualProjectionCard';
 import RecommendationCard from '../components/RecommendationCard';
-import { Download, RotateCcw, Loader2, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { Download, RotateCcw, Loader2, TrendingUp, TrendingDown, ArrowRight, Award } from 'lucide-react';
 
 export default function Results() {
   const { answers, scoringResult, yearlyResult, aiRecommendations, isAiLoading } = useApp();
@@ -188,8 +188,8 @@ export default function Results() {
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button onClick={handleDownloadPDF} disabled={pdfLoading} className="flex items-center justify-center gap-2 bg-forest-800 text-white px-8 py-3 rounded-xl font-semibold hover:bg-forest-900 transition-colors disabled:opacity-60">
-            {pdfLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-            {pdfLoading ? 'Generating PDF...' : 'Download Full Report (PDF)'}
+            {pdfLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Award className="w-5 h-5" />}
+            {pdfLoading ? 'Generating Certificate...' : 'Download Certificate (PDF)'}
           </button>
           <Link to="/assessment" className="flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-600 px-8 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
             <RotateCcw className="w-5 h-5" /> Retake Assessment
@@ -197,56 +197,125 @@ export default function Results() {
         </div>
       </div>
 
-      {/* Hidden Report for PDF */}
-      <div ref={reportRef} id="report-content" style={{ display: 'none', width: '800px', padding: '40px', background: 'white', fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: '28px', color: '#14532d', margin: '0 0 5px' }}>AI Sustainability Analyzer Report</h1>
-          <p style={{ color: '#6b7280', fontSize: '14px' }}>{getReportDate()} {answers.name ? `| ${answers.name}` : ''}</p>
-        </div>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{ fontSize: '64px', fontWeight: '800', color: scoreBand.color }}>{finalScore}</div>
-          <div style={{ fontSize: '20px', color: scoreBand.color, fontWeight: '600' }}>{scoreBand.label}</div>
-        </div>
-        <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', color: '#14532d', borderBottom: '2px solid #dcfce7', paddingBottom: '8px', marginBottom: '15px' }}>Category Scores</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '25px', fontSize: '13px' }}>
-          <thead><tr style={{ background: '#f0fdf4' }}><th style={{ textAlign: 'left', padding: '8px', border: '1px solid #dcfce7' }}>Category</th><th style={{ textAlign: 'center', padding: '8px', border: '1px solid #dcfce7' }}>Score</th><th style={{ textAlign: 'center', padding: '8px', border: '1px solid #dcfce7' }}>Weight</th></tr></thead>
-          <tbody>
-            {Object.entries(categoryScores).map(([cat, score]) => (
-              <tr key={cat}><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>{getCategoryIcon(cat)} {getCategoryLabel(cat)}</td><td style={{ textAlign: 'center', padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{score}/100</td><td style={{ textAlign: 'center', padding: '8px', border: '1px solid #e5e7eb' }}>{cat === 'transport' ? 20 : cat === 'bonus' ? 5 : cat === 'water' || cat === 'lifestyle' || cat === 'pollution' ? 10 : 15}%</td></tr>
-            ))}
-          </tbody>
-        </table>
-        <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', color: '#14532d', borderBottom: '2px solid #dcfce7', paddingBottom: '8px', marginBottom: '15px' }}>Annual Footprint</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '25px', fontSize: '13px' }}>
-          <tbody>
-            <tr><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>Total CO2e</td><td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{annualSummary.totalPersonalCO2Tonnes}</td></tr>
-            <tr><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>Electricity</td><td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{m.totalEstimatedKwhYear} kWh/yr ({annualSummary.estimatedMonthlyBill}/mo)</td></tr>
-            <tr><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>Water</td><td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{m.totalWaterLitresYear.toLocaleString()} L/yr</td></tr>
-            <tr><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>Transport CO2</td><td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{formatCO2(m.totalTransportCO2KgYear)}/yr</td></tr>
-            <tr><td style={{ padding: '8px', border: '1px solid #e5e7eb' }}>vs India Average</td><td style={{ padding: '8px', border: '1px solid #e5e7eb', fontWeight: '600' }}>{annualSummary.comparisonToIndiaAvg}</td></tr>
-          </tbody>
-        </table>
-        {impactSummary.length > 0 && (
-          <>
-            <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', color: '#14532d', borderBottom: '2px solid #dcfce7', paddingBottom: '8px', marginBottom: '15px' }}>Key Impacts</h2>
-            <ul style={{ fontSize: '13px', lineHeight: '1.8', marginBottom: '25px' }}>
-              {impactSummary.map((s, i) => <li key={i}>{s}</li>)}
-            </ul>
-          </>
-        )}
-        {aiRecommendations && (
-          <>
-            <h2 style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', color: '#14532d', borderBottom: '2px solid #dcfce7', paddingBottom: '8px', marginBottom: '15px' }}>AI Recommendations</h2>
-            <p style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '15px' }}>{aiRecommendations.summary}</p>
-            {aiRecommendations.immediateActions && (
-              <ul style={{ fontSize: '13px', lineHeight: '1.8' }}>
-                {aiRecommendations.immediateActions.map((a, i) => <li key={i}><strong>{a.action}</strong> — {a.estimatedSaving}</li>)}
-              </ul>
-            )}
-          </>
-        )}
-        <div style={{ marginTop: '30px', paddingTop: '15px', borderTop: '1px solid #e5e7eb', textAlign: 'center', fontSize: '11px', color: '#9ca3af' }}>
-          Generated by AI Sustainability Analyzer | Data: ARAI, BEE, CEA, CPCB, CWC, IEA | {getReportDate()}
+      {/* Hidden A4 Certificate for PDF */}
+      <div ref={reportRef} id="report-content" style={{ display: 'none', width: '794px', minHeight: '1123px', background: 'white', fontFamily: 'Plus Jakarta Sans, sans-serif', position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative border */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '12px solid #14532d', borderRadius: '4px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '12px', left: '12px', right: '12px', bottom: '12px', border: '2px solid #86efac', borderRadius: '2px', pointerEvents: 'none' }} />
+
+        {/* Corner leaf decorations */}
+        <div style={{ position: 'absolute', top: '20px', left: '20px', fontSize: '28px', opacity: 0.3 }}>🌿</div>
+        <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '28px', opacity: 0.3 }}>🌿</div>
+        <div style={{ position: 'absolute', bottom: '20px', left: '20px', fontSize: '28px', opacity: 0.3 }}>🌱</div>
+        <div style={{ position: 'absolute', bottom: '20px', right: '20px', fontSize: '28px', opacity: 0.3 }}>🌱</div>
+
+        <div style={{ padding: '50px 45px 40px' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+            <div style={{ fontSize: '13px', letterSpacing: '4px', color: '#16a34a', fontWeight: '700', textTransform: 'uppercase', marginBottom: '6px' }}>AI Sustainability Analyzer</div>
+            <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: '36px', color: '#14532d', margin: '0 0 4px', fontWeight: '700' }}>Certificate of Assessment</h1>
+            <div style={{ width: '80px', height: '3px', background: 'linear-gradient(to right, #16a34a, #14532d)', margin: '10px auto', borderRadius: '2px' }} />
+          </div>
+
+          {/* Name & Date */}
+          <div style={{ textAlign: 'center', margin: '18px 0' }}>
+            <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 4px' }}>This certifies that</p>
+            <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '30px', color: '#14532d', fontWeight: '700', margin: '0 0 4px' }}>{answers.name || 'Participant'}</p>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>has completed the sustainability assessment on {getReportDate()}</p>
+          </div>
+
+          {/* Score Circle */}
+          <div style={{ textAlign: 'center', margin: '20px 0 16px' }}>
+            <div style={{ display: 'inline-block', width: '120px', height: '120px', borderRadius: '50%', border: `6px solid ${scoreBand.color}`, background: '#f0fdf4', lineHeight: '108px', position: 'relative' }}>
+              <span style={{ fontSize: '44px', fontWeight: '800', color: scoreBand.color }}>{finalScore}</span>
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '700', color: scoreBand.color, marginTop: '6px' }}>{scoreBand.label}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>out of 100</div>
+          </div>
+
+          {/* Category Scores - compact grid */}
+          <div style={{ margin: '16px 0', padding: '14px 16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
+            <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '15px', color: '#14532d', margin: '0 0 10px', textAlign: 'center' }}>Category Performance</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+              {Object.entries(categoryScores).map(([cat, score]) => (
+                <div key={cat} style={{ textAlign: 'center', padding: '6px 4px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                  <div style={{ fontSize: '16px', marginBottom: '2px' }}>{getCategoryIcon(cat)}</div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px' }}>{getCategoryLabel(cat)}</div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: score >= 65 ? '#16a34a' : score >= 50 ? '#84cc16' : score >= 35 ? '#d97706' : '#dc2626' }}>{score}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Annual Footprint Summary */}
+          <div style={{ margin: '14px 0', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Carbon Footprint</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{annualSummary.totalPersonalCO2Tonnes}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>India avg: 1.9 tonnes</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Water Usage</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{(m.totalWaterLitresYear / 1000).toFixed(1)} kL</div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>per year</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Green Transport</div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{annualSummary.greenTransportShare}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>of your travel</div>
+            </div>
+          </div>
+
+          {/* AI Recommendations */}
+          {aiRecommendations && (
+            <div style={{ margin: '14px 0', padding: '14px 16px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
+              <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '15px', color: '#92400e', margin: '0 0 8px' }}>Personalized Recommendations</h3>
+              <p style={{ fontSize: '11px', color: '#78716c', lineHeight: '1.5', margin: '0 0 8px' }}>{aiRecommendations.summary}</p>
+              {aiRecommendations.immediateActions && (
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  {aiRecommendations.immediateActions.map((a, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '11px' }}>
+                      <span style={{ color: '#16a34a', fontWeight: '800', flexShrink: 0 }}>{i + 1}.</span>
+                      <div>
+                        <strong style={{ color: '#14532d' }}>{a.action}</strong>
+                        <span style={{ color: '#6b7280' }}> — {a.estimatedSaving}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {aiRecommendations.weeklyImprovements && (
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #fde68a' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>Weekly Habits to Build</div>
+                  {aiRecommendations.weeklyImprovements.map((h, i) => (
+                    <div key={i} style={{ fontSize: '11px', color: '#78716c', marginBottom: '3px' }}>• {h.habit}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Key Impacts */}
+          {impactSummary.length > 0 && (
+            <div style={{ margin: '10px 0', padding: '10px 16px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+              <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '13px', color: '#991b1b', margin: '0 0 6px' }}>Key Environmental Impacts</h3>
+              {impactSummary.slice(0, 3).map((s, i) => (
+                <p key={i} style={{ fontSize: '10px', color: '#78716c', margin: '0 0 3px', lineHeight: '1.4' }}>• {s}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '2px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Certificate ID: SA-{Date.now().toString(36).toUpperCase()}</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Data: ARAI, BEE, CEA, CPCB, CWC, IEA</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '14px', color: '#14532d', fontWeight: '600' }}>AI Sustainability Analyzer</div>
+              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Powered by verified Indian environmental data</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
