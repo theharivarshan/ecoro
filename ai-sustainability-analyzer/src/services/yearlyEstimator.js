@@ -1,157 +1,185 @@
 import REAL_DATA from '../data/realWorldData.js';
 
-function getBathLitres(bathType) {
-  switch (bathType) {
-    case 'bucket': return REAL_DATA.BUCKET_BATH_LITRES;
-    case 'short_shower': return REAL_DATA.SHORT_SHOWER_5MIN_LITRES;
-    case 'medium_shower': return REAL_DATA.MEDIUM_SHOWER_10MIN_LITRES;
-    case 'long_shower': return REAL_DATA.LONG_SHOWER_15MIN_LITRES;
-    case 'bath_tub': return REAL_DATA.BATH_TUB_LITRES;
-    default: return REAL_DATA.BUCKET_BATH_LITRES;
-  }
+function getBillMidpoint(range) {
+  const map = { '0-300': 150, '300-700': 500, '700-1500': 1100, '1500-3000': 2250, '3000-5000': 4000, '5000+': 6500 };
+  return map[range] || 500;
 }
 
-function getDeliveryCount(val) {
-  switch (val) {
-    case 'daily': return 7;
-    case '5-7': return 6;
-    case '3-4': return 3.5;
-    case '1-2': return 1.5;
-    default: return 0;
-  }
+function getFuelMidpoint(range) {
+  const map = { '0': 0, '1-1000': 500, '1000-2500': 1750, '2500-5000': 3750, '5000-10000': 7500, '10000+': 12000 };
+  return map[range] || 0;
 }
 
-export function estimateYearly(answers, weeklyScore) {
+function getGeyserTimesPerMonth(range) {
+  const map = { '0': 0, '1-10': 5, '10-20': 15, '20-30': 25, '30+': 35 };
+  return map[range] || 0;
+}
+
+function getOrderCount(range) {
+  const map = { '0': 0, '1-4': 2.5, '5-10': 7.5, '10-20': 15, '20+': 25 };
+  return map[range] || 0;
+}
+
+function getOnlineOrderCount(range) {
+  const map = { '0': 0, '1-3': 2, '4-8': 6, '8-15': 11, '15+': 18 };
+  return map[range] || 0;
+}
+
+export function estimateYearly(answers, monthlyScore) {
   const a = answers;
-  const acHrs = Number(a.acHoursPerWeek) || 0;
-  const geyserHrs = Number(a.geyserHoursPerWeek) || 0;
-  const tvHrs = Number(a.tvHoursPerWeek) || 0;
-  const fanHrs = Number(a.fanHoursPerDay) || 0;
-  const washLoads = Number(a.washingLoadsPerWeek) || 0;
+  const state = a.state || 'TN';
 
-  // Electricity annualized
-  const acKwhPerYear = acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * 52;
-  const geyserKwhPerYear = geyserHrs * REAL_DATA.GEYSER_15L_KWH_PER_HR * 52;
-  const tvKwhPerYear = tvHrs * REAL_DATA.TELEVISION_LED_32IN_KWH_PER_HR * 52;
-  const fanKwhPerYear = fanHrs * REAL_DATA.CEILING_FAN_KWH_PER_HR * 365;
-  const washKwhPerYear = washLoads * REAL_DATA.WASHING_MACHINE_TOP_LOAD_KWH * 52;
-  const fridgeKwhPerYear = REAL_DATA.REFRIGERATOR_250L_3STAR_KWH_PER_DAY * 365;
-  const totalEstimatedKwhYear = acKwhPerYear + geyserKwhPerYear + tvKwhPerYear + fanKwhPerYear + washKwhPerYear + fridgeKwhPerYear;
-  const totalElectricityBillINR = totalEstimatedKwhYear * REAL_DATA.ELECTRICITY_TARIFF_INR_PER_KWH;
-  const totalElectricityCO2KgYear = totalEstimatedKwhYear * REAL_DATA.INDIA_GRID_CO2_INTENSITY;
+  // ── ELECTRICITY (monthly × 12) ──
+  const monthlyBill = getBillMidpoint(a.monthlyElectricityBill);
+  const monthlyUnits = REAL_DATA.unitsFromBill(monthlyBill, state);
+  const yearlyUnits = monthlyUnits * 12;
+  const yearlyElectricityBill = monthlyBill * 12;
+  const yearlyElectricityCO2Kg = yearlyUnits * REAL_DATA.INDIA_GRID_CO2_INTENSITY;
 
-  // Transport annualized
-  const petrol2wKm = Number(a.petrolTwoWheelerKm) || 0;
-  const petrolCarKm = Number(a.petrolCarKm) || 0;
-  const dieselCarKm = Number(a.dieselCarKm) || 0;
-  const busKm = Number(a.busMetroTrainKm) || 0;
-  const walkCycleKm = Number(a.walkingCyclingKm) || 0;
+  // Geyser contribution estimate
+  const geyserTimesMonth = getGeyserTimesPerMonth(a.geyserUsage);
+  const geyserKwhYear = geyserTimesMonth * REAL_DATA.GEYSER_15L_KWH_PER_USE * 12;
 
-  const co2FromPetrol2WheelerKgYear = petrol2wKm * REAL_DATA.PETROL_TWO_WHEELER_CO2_PER_KM / 1000 * 52;
-  const co2FromPetrolCarKgYear = petrolCarKm * REAL_DATA.PETROL_CAR_CO2_PER_KM / 1000 * 52;
-  const co2FromDieselCarKgYear = dieselCarKm * REAL_DATA.DIESEL_CAR_CO2_PER_KM / 1000 * 52;
-  const totalTransportCO2KgYear = co2FromPetrol2WheelerKgYear + co2FromPetrolCarKgYear + co2FromDieselCarKgYear;
-  const totalGreenKmYear = (walkCycleKm + busKm) * 52;
-  const totalFossilKmYear = (petrol2wKm + petrolCarKm + dieselCarKm) * 52;
-  const avgFossilCO2PerKm = totalFossilKmYear > 0
-    ? (totalTransportCO2KgYear * 1000 / totalFossilKmYear)
-    : REAL_DATA.PETROL_CAR_CO2_PER_KM;
-  const co2AvoidedByGreenTransportKgYear = totalGreenKmYear * avgFossilCO2PerKm / 1000;
+  // ── TRANSPORT (monthly × 12) ──
+  const monthlyFuelSpend = getFuelMidpoint(a.monthlyFuelSpend);
+  const isDiesel = a.vehicleType === 'diesel_car';
+  const pricePerLitre = isDiesel ? REAL_DATA.DIESEL_PRICE_PER_LITRE : REAL_DATA.PETROL_PRICE_PER_LITRE;
+  const co2PerLitre = isDiesel ? REAL_DATA.DIESEL_CO2_PER_LITRE : REAL_DATA.PETROL_CO2_PER_LITRE;
+  const monthlyLitres = monthlyFuelSpend > 0 ? monthlyFuelSpend / pricePerLitre : 0;
 
-  // Water annualized
-  const bathLitres = getBathLitres(a.bathType);
-  const bathWaterLitresYear = bathLitres * 365;
-  const laundryLoads = Number(a.laundryLoadsPerWeek) || 0;
-  const laundryWaterLitresYear = laundryLoads * REAL_DATA.TOP_LOAD_WASHING_LITRES * 52;
-  const vehicleWashLitresYear = (() => {
-    const vw = a.vehicleWashFrequency;
-    const litresPerWash = REAL_DATA.VEHICLE_HOSE_WASH_LITRES;
-    if (vw === 'multiple_week') return litresPerWash * 104;
-    if (vw === 'weekly') return litresPerWash * 52;
-    if (vw === 'biweekly') return litresPerWash * 26;
-    if (vw === 'monthly') return litresPerWash * 12;
-    return 0;
-  })();
-  const totalWaterLitresYear = bathWaterLitresYear + laundryWaterLitresYear + vehicleWashLitresYear;
-  const waterComparedToPerCapitaPercent = (totalWaterLitresYear / (REAL_DATA.INDIA_WATER_PER_CAPITA_CUBIC_M * 1000)) * 100;
+  // Mileage-based km calculation
+  let mileage = REAL_DATA.MILEAGE_PETROL_CAR;
+  if (a.vehicleType === 'petrol_2w') mileage = REAL_DATA.MILEAGE_PETROL_2W;
+  else if (a.vehicleType === 'diesel_car') mileage = REAL_DATA.MILEAGE_DIESEL_CAR;
+  const monthlyKmDriven = monthlyLitres * mileage;
+  const yearlyKmDriven = monthlyKmDriven * 12;
+  const yearlyTransportCO2Kg = monthlyLitres * co2PerLitre * 12;
 
-  // Food CO2e
-  const vegMeals = Number(a.vegMealsPerWeek) || 0;
-  const nonVegMeals = Number(a.nonVegMealsPerWeek) || 0;
-  const vegMealsCO2eKgYear = vegMeals * REAL_DATA.VEG_MEAL_CO2E_KG * 52;
-  const nonVegMealsCO2eKgYear = nonVegMeals * REAL_DATA.CHICKEN_MEAL_CO2E_KG * 52;
-  const deliveryCount = getDeliveryCount(a.foodDeliveryPerWeek);
-  const foodDeliveryCO2eKgYear = deliveryCount * REAL_DATA.FOOD_DELIVERY_EXTRA_CO2E_KG * 52;
+  // ── FOOD (monthly × 12) ──
+  // Diet-based CO₂
+  const mealsPerDay = 3;
+  const daysPerMonth = 30;
+  let mealCO2PerMeal = REAL_DATA.VEG_MEAL_CO2E_KG;
+  if (a.dietType === 'non_veg_daily') mealCO2PerMeal = (REAL_DATA.VEG_MEAL_CO2E_KG + REAL_DATA.CHICKEN_MEAL_CO2E_KG) / 2;
+  else if (a.dietType === 'non_veg_regular') mealCO2PerMeal = REAL_DATA.VEG_MEAL_CO2E_KG * 0.7 + REAL_DATA.CHICKEN_MEAL_CO2E_KG * 0.3;
+  else if (a.dietType === 'non_veg_occasional') mealCO2PerMeal = REAL_DATA.VEG_MEAL_CO2E_KG * 0.85 + REAL_DATA.CHICKEN_MEAL_CO2E_KG * 0.15;
+  else if (a.dietType === 'eggetarian') mealCO2PerMeal = REAL_DATA.VEG_MEAL_CO2E_KG + REAL_DATA.EGG_CO2E_KG * 0.3;
+  else if (a.dietType === 'vegan') mealCO2PerMeal = REAL_DATA.VEG_MEAL_CO2E_KG * 0.8;
 
-  // Total personal carbon footprint
-  const wasteCO2Estimate = 150; // avg waste-related CO2 per person in India (kg/year)
-  const totalCO2eKgYear = totalTransportCO2KgYear + totalElectricityCO2KgYear + vegMealsCO2eKgYear + nonVegMealsCO2eKgYear + foodDeliveryCO2eKgYear + wasteCO2Estimate;
-  const indiaAvgCO2eKgPerPersonYear = 1900; // IEA 2022: ~1.9 tonnes/person/year
-  const diffPercent = ((totalCO2eKgYear - indiaAvgCO2eKgPerPersonYear) / indiaAvgCO2eKgPerPersonYear * 100).toFixed(1);
-  const comparedToIndiaAverage = `${diffPercent > 0 ? '+' : ''}${diffPercent}% vs national average of 1.9 tonnes`;
+  const yearlyDietCO2Kg = mealCO2PerMeal * mealsPerDay * daysPerMonth * 12;
+  const monthlyFoodOrders = getOrderCount(a.monthlyFoodOrdering);
+  const yearlyFoodDeliveryCO2Kg = monthlyFoodOrders * REAL_DATA.FOOD_DELIVERY_CO2E_PER_ORDER * 12;
 
-  // Seasonal adjustment for projected annual score
-  const isACUser = acHrs > 7;
-  const isGeyserUser = geyserHrs > 2;
+  // ── WATER (daily → yearly) ──
+  const bathMap = { bucket: 15, short_shower: 40, long_shower: 75, both: 28 };
+  const bathLitresPerDay = bathMap[a.bathingMethod] || 28;
+  const cookCleanPerDay = 30;
+  const flushingPerDay = 40; // ~4 flushes × 10L
+  const miscPerDay = 15; // hand washing, drinking etc.
+
+  // Washing machine
+  const washMap = { '0': 0, '1-4': 2.5, '5-8': 6.5, '8-12': 10, '12+': 14 };
+  const washLoadsMonth = washMap[a.washingFrequency] || 0;
+  const washLitresPerDay = (washLoadsMonth * REAL_DATA.WASHING_MACHINE_LITRES_PER_LOAD) / 30;
+
+  const dailyWaterLitres = bathLitresPerDay + cookCleanPerDay + flushingPerDay + miscPerDay + washLitresPerDay;
+  const yearlyWaterLitres = Math.round(dailyWaterLitres * 365);
+  const dailyRecommended = REAL_DATA.INDIA_DAILY_WATER_PER_CAPITA_LITRES;
+  const waterVsRecommended = ((dailyWaterLitres / dailyRecommended) * 100).toFixed(0);
+
+  // ── ONLINE SHOPPING (monthly × 12) ──
+  const monthlyOnlineOrders = getOnlineOrderCount(a.onlineOrdersPerMonth);
+  const yearlyOnlineOrders = monthlyOnlineOrders * 12;
+  const yearlyShoppingCO2Kg = yearlyOnlineOrders * REAL_DATA.DELIVERY_PACKAGING_CO2E_KG;
+  // Returns
+  const returnMultiplier = a.returnFrequency === 'often' ? 0.5 : a.returnFrequency === 'sometimes' ? 0.2 : 0;
+  const yearlyReturnCO2Kg = yearlyOnlineOrders * returnMultiplier * REAL_DATA.RETURN_EXTRA_CO2E_KG;
+
+  // ── WASTE ──
+  const familyMap = { '1': 1, '2': 2, '3-4': 3.5, '5+': 5.5 };
+  const familySize = familyMap[a.familySize] || 3;
+  const perPersonWasteKgDay = REAL_DATA.AVG_HOUSEHOLD_WASTE_KG_PER_DAY;
+  const yearlyWasteKg = perPersonWasteKgDay * 365;
+  const yearlyWasteCO2Kg = (a.wasteSegregation === 'yes' || a.wasteSegregation === true)
+    ? yearlyWasteKg * REAL_DATA.METHANE_FROM_LANDFILL_KG_CO2E_PER_KG * 0.4 // segregation reduces landfill methane
+    : yearlyWasteKg * REAL_DATA.METHANE_FROM_LANDFILL_KG_CO2E_PER_KG;
+
+  // ── PLANTS OFFSET ──
+  const plantCount = Number(a.plantCount) || 0;
+  let plantOffset = 0;
+  if (a.plantsAtHome === 'garden') plantOffset = REAL_DATA.BALCONY_GARDEN_CO2_OFFSET_KG_PER_YEAR + plantCount * REAL_DATA.INDOOR_PLANT_CO2_ABSORPTION_KG_PER_YEAR;
+  else if (a.plantsAtHome === 'balcony') plantOffset = plantCount * REAL_DATA.INDOOR_PLANT_CO2_ABSORPTION_KG_PER_YEAR;
+  else if (a.plantsAtHome === 'few') plantOffset = plantCount * REAL_DATA.INDOOR_PLANT_CO2_ABSORPTION_KG_PER_YEAR;
+
+  // ── TOTAL CO₂ ──
+  const totalCO2KgYear = Math.round(
+    yearlyElectricityCO2Kg +
+    yearlyTransportCO2Kg +
+    yearlyDietCO2Kg +
+    yearlyFoodDeliveryCO2Kg +
+    yearlyShoppingCO2Kg +
+    yearlyReturnCO2Kg +
+    yearlyWasteCO2Kg -
+    plantOffset
+  );
+  const totalCO2Tonnes = (totalCO2KgYear / 1000).toFixed(2);
+  const indiaAvg = REAL_DATA.INDIA_PER_CAPITA_CO2_TONNES;
+  const globalAvg = REAL_DATA.GLOBAL_PER_CAPITA_CO2_TONNES;
+  const diffFromIndia = ((totalCO2KgYear / 1000 - indiaAvg) / indiaAvg * 100).toFixed(1);
+
+  // Earth impact % (your share of India's emissions)
+  const earthImpactPercent = (totalCO2KgYear / (REAL_DATA.INDIA_CO2_BILLION_TONNES_2022 * 1e9) * 100);
+
+  // Projected annual score (seasonal adjustment)
+  const isACUser = a.acUsage === 'daily_few' || a.acUsage === 'daily_long';
+  const isGeyserUser = a.geyserUsage === '20-30' || a.geyserUsage === '30+';
   const summerAdj = isACUser ? -3 : 0;
-  const monsoonAdj = 2;
   const winterAdj = isGeyserUser ? -1 : 0;
-  const seasonalAdj = ((summerAdj * 4 + monsoonAdj * 3 + winterAdj * 5) / 12);
-  const projectedAnnualScore = Math.round(Math.min(100, Math.max(0, weeklyScore + Math.max(-2, Math.min(2, seasonalAdj)))));
+  const seasonalAdj = (summerAdj * 4 + 2 * 3 + winterAdj * 5) / 12;
+  const projectedAnnualScore = Math.round(Math.min(100, Math.max(0, monthlyScore + Math.max(-2, Math.min(2, seasonalAdj)))));
 
   // Risk patterns
   const riskPatterns = [];
-  if (totalTransportCO2KgYear > 1200) riskPatterns.push({ area: 'Transport CO₂', level: 'HIGH', detail: `${Math.round(totalTransportCO2KgYear)} kg/year (India avg transport ~350 kg/year)` });
-  else if (totalTransportCO2KgYear > 600) riskPatterns.push({ area: 'Transport CO₂', level: 'MEDIUM', detail: `${Math.round(totalTransportCO2KgYear)} kg/year` });
-  if (acKwhPerYear > 800) riskPatterns.push({ area: 'AC Energy', level: 'HIGH', detail: `${Math.round(acKwhPerYear)} kWh/year (avg Indian home ~200 kWh AC/year)` });
-  else if (acKwhPerYear > 400) riskPatterns.push({ area: 'AC Energy', level: 'MEDIUM', detail: `${Math.round(acKwhPerYear)} kWh/year` });
-  if (totalWaterLitresYear > 50000) riskPatterns.push({ area: 'Water Usage', level: 'MEDIUM', detail: `${Math.round(totalWaterLitresYear).toLocaleString()} L/year` });
-  if (deliveryCount * 52 > 150) riskPatterns.push({ area: 'Food Delivery', level: 'MEDIUM', detail: `${Math.round(deliveryCount * 52)} orders/year` });
-  if (nonVegMeals * 52 > 260) riskPatterns.push({ area: 'Non-Veg Diet', level: 'LOW-MEDIUM', detail: `${nonVegMeals * 52} meals/year` });
-
-  // Annual summary
-  const greenTransportShare = (totalGreenKmYear + totalFossilKmYear) > 0
-    ? ((totalGreenKmYear / (totalGreenKmYear + totalFossilKmYear)) * 100).toFixed(1)
-    : '100';
-  const estimatedMonthlyBill = `₹${Math.round(totalElectricityBillINR / 12).toLocaleString('en-IN')}`;
-  const totalPersonalCO2Tonnes = (totalCO2eKgYear / 1000).toFixed(2);
+  if (yearlyTransportCO2Kg > 1200) riskPatterns.push({ area: 'Transport CO₂', level: 'HIGH', detail: `${Math.round(yearlyTransportCO2Kg)} kg/year` });
+  else if (yearlyTransportCO2Kg > 500) riskPatterns.push({ area: 'Transport CO₂', level: 'MEDIUM', detail: `${Math.round(yearlyTransportCO2Kg)} kg/year` });
+  if (yearlyUnits > 3600) riskPatterns.push({ area: 'Electricity', level: 'HIGH', detail: `${yearlyUnits} units/year` });
+  else if (yearlyUnits > 1800) riskPatterns.push({ area: 'Electricity', level: 'MEDIUM', detail: `${yearlyUnits} units/year` });
+  if (yearlyWaterLitres > 60000) riskPatterns.push({ area: 'Water Usage', level: 'MEDIUM', detail: `${yearlyWaterLitres.toLocaleString()} L/year` });
+  if (yearlyOnlineOrders > 80) riskPatterns.push({ area: 'Online Shopping', level: 'MEDIUM', detail: `${yearlyOnlineOrders} orders/year` });
 
   return {
     annualizedMetrics: {
-      acKwhPerYear: Math.round(acKwhPerYear),
-      geyserKwhPerYear: Math.round(geyserKwhPerYear),
-      totalEstimatedKwhYear: Math.round(totalEstimatedKwhYear),
-      totalElectricityBillINR: Math.round(totalElectricityBillINR),
-      totalElectricityCO2KgYear: Math.round(totalElectricityCO2KgYear),
-      co2FromPetrol2WheelerKgYear: Math.round(co2FromPetrol2WheelerKgYear),
-      co2FromPetrolCarKgYear: Math.round(co2FromPetrolCarKgYear),
-      co2FromDieselCarKgYear: Math.round(co2FromDieselCarKgYear),
-      totalTransportCO2KgYear: Math.round(totalTransportCO2KgYear),
-      totalGreenKmYear: Math.round(totalGreenKmYear),
-      totalFossilKmYear: Math.round(totalFossilKmYear),
-      co2AvoidedByGreenTransportKgYear: Math.round(co2AvoidedByGreenTransportKgYear),
-      bathWaterLitresYear: Math.round(bathWaterLitresYear),
-      laundryWaterLitresYear: Math.round(laundryWaterLitresYear),
-      totalWaterLitresYear: Math.round(totalWaterLitresYear),
-      waterComparedToPerCapitaPercent: Number(waterComparedToPerCapitaPercent.toFixed(1)),
-      vegMealsCO2eKgYear: Math.round(vegMealsCO2eKgYear),
-      nonVegMealsCO2eKgYear: Math.round(nonVegMealsCO2eKgYear),
-      foodDeliveryCO2eKgYear: Math.round(foodDeliveryCO2eKgYear),
-      totalCO2eKgYear: Math.round(totalCO2eKgYear),
-      indiaAvgCO2eKgPerPersonYear,
-      comparedToIndiaAverage,
-      deliveriesPerYear: Math.round(deliveryCount * 52),
+      monthlyUnits,
+      yearlyUnits,
+      yearlyElectricityBill,
+      yearlyElectricityCO2Kg: Math.round(yearlyElectricityCO2Kg),
+      geyserKwhYear: Math.round(geyserKwhYear),
+      monthlyFuelSpend,
+      monthlyLitres: Math.round(monthlyLitres * 10) / 10,
+      yearlyKmDriven: Math.round(yearlyKmDriven),
+      yearlyTransportCO2Kg: Math.round(yearlyTransportCO2Kg),
+      yearlyDietCO2Kg: Math.round(yearlyDietCO2Kg),
+      yearlyFoodDeliveryCO2Kg: Math.round(yearlyFoodDeliveryCO2Kg),
+      dailyWaterLitres: Math.round(dailyWaterLitres),
+      yearlyWaterLitres,
+      waterVsRecommended,
+      yearlyOnlineOrders,
+      yearlyShoppingCO2Kg: Math.round(yearlyShoppingCO2Kg),
+      yearlyWasteKg: Math.round(yearlyWasteKg),
+      yearlyWasteCO2Kg: Math.round(yearlyWasteCO2Kg),
+      plantOffset: Math.round(plantOffset),
+      totalCO2KgYear,
     },
     projectedAnnualScore,
     riskPatterns,
+    earthImpactPercent: earthImpactPercent.toExponential(2),
     annualSummary: {
-      greenTransportShare: `${greenTransportShare}%`,
-      estimatedMonthlyBill,
-      totalPersonalCO2Tonnes: `${totalPersonalCO2Tonnes} tonnes`,
-      comparisonToIndiaAvg: `${diffPercent > 0 ? '' : ''}${Math.abs(diffPercent)}% ${diffPercent > 0 ? 'above' : 'below'} India's average of 1.9t CO₂/person/year`,
-      vegRatio: (vegMeals + nonVegMeals) > 0
-        ? `${((vegMeals / (vegMeals + nonVegMeals)) * 100).toFixed(0)}%`
-        : 'N/A',
+      totalPersonalCO2Tonnes: `${totalCO2Tonnes} tonnes`,
+      comparisonToIndiaAvg: `${Math.abs(diffFromIndia)}% ${diffFromIndia > 0 ? 'above' : 'below'} India's average of ${indiaAvg}t CO₂/person/year`,
+      vsGlobalAvg: `${((totalCO2KgYear / 1000 / globalAvg) * 100).toFixed(0)}% of global average (${globalAvg}t)`,
+      estimatedMonthlyBill: `₹${Math.round(monthlyBill).toLocaleString('en-IN')}`,
+      dailyWater: `${Math.round(dailyWaterLitres)}L/day`,
+      yearlyWater: `${(yearlyWaterLitres / 1000).toFixed(1)} kL/year`,
     },
   };
 }

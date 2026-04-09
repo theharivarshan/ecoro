@@ -1,298 +1,296 @@
 import REAL_DATA from '../data/realWorldData.js';
 
 const WEIGHTS = {
-  transport: 20,
-  electricity: 15,
-  food: 15,
-  waste: 15,
-  water: 10,
-  lifestyle: 10,
-  pollution: 10,
-  bonus: 5,
+  electricity: 18,
+  transport: 18,
+  food: 16,
+  water: 14,
+  waste: 14,
+  shopping: 10,
+  green: 10,
 };
 
 function clamp(val, min = 0, max = 100) {
   return Math.round(Math.min(max, Math.max(min, val)));
 }
 
-function scoreTransport(a) {
-  let score = 50;
-  const walkKm = Number(a.walkingCyclingKm) || 0;
-  const busKm = Number(a.busMetroTrainKm) || 0;
-  const petrol2wKm = Number(a.petrolTwoWheelerKm) || 0;
-  const petrolCarKm = Number(a.petrolCarKm) || 0;
-  const dieselCarKm = Number(a.dieselCarKm) || 0;
+// ── Get approximate monthly bill midpoint ──
+function getBillMidpoint(range) {
+  const map = { '0-300': 150, '300-700': 500, '700-1500': 1100, '1500-3000': 2250, '3000-5000': 4000, '5000+': 6500 };
+  return map[range] || 500;
+}
 
-  // Positive: green modes
-  score += Math.min(walkKm * 0.5, 12);
-  score += Math.min(busKm * 0.08, 8);
+function getFuelMidpoint(range) {
+  const map = { '0': 0, '1-1000': 500, '1000-2500': 1750, '2500-5000': 3750, '5000-10000': 7500, '10000+': 12000 };
+  return map[range] || 0;
+}
 
-  // Negative: fossil fuel (penalties proportional to real CO2 per km)
-  score -= Math.min(petrol2wKm * 0.06, 15); // 92g CO₂/km
-  score -= Math.min(petrolCarKm * 0.10, 20); // 155g CO₂/km
-  score -= Math.min(dieselCarKm * 0.12, 20); // 168g CO₂/km
+// ── Scoring Functions ──
 
-  // Deliveries
-  const del = a.weeklyDeliveries;
-  if (del === '8+') score -= 10;
-  else if (del === '5-7') score -= 6;
-  else if (del === '3-4') score -= 3;
-  else if (del === '1-2') score -= 1;
+function scoreElectricity(a) {
+  let score = 65;
 
-  // Carpooling
-  const cp = a.carpooling;
-  if (cp === 'always') score += 5;
-  else if (cp === 'often') score += 3;
-  else if (cp === 'rarely') score -= 3;
-  else if (cp === 'never_drive') score += 2;
+  // Monthly bill → higher bill = more consumption = lower score
+  const bill = getBillMidpoint(a.monthlyElectricityBill);
+  if (bill <= 300) score += 15;
+  else if (bill <= 700) score += 8;
+  else if (bill <= 1500) score -= 5;
+  else if (bill <= 3000) score -= 15;
+  else if (bill <= 5000) score -= 25;
+  else score -= 35;
+
+  // AC usage
+  const ac = a.acUsage;
+  if (ac === 'no') score += 10;
+  else if (ac === 'rarely') score += 5;
+  else if (ac === 'moderate') score -= 3;
+  else if (ac === 'daily_few') score -= 10;
+  else if (ac === 'daily_long') score -= 20;
+
+  // Geyser usage (times/month)
+  const geyser = a.geyserUsage;
+  if (geyser === '0') score += 5;
+  else if (geyser === '1-10') score -= 2;
+  else if (geyser === '10-20') score -= 6;
+  else if (geyser === '20-30') score -= 12;
+  else if (geyser === '30+') score -= 18;
+
+  // BEE star rating
+  const rating = a.applianceRating;
+  if (rating === '5star') score += 10;
+  else if (rating === '3star') score += 3;
+  else if (rating === 'old') score -= 8;
+
+  // Positive behaviors
+  if (a.solarPanels === true || a.solarPanels === 'yes') score += 15;
+  if (a.ledBulbs === true || a.ledBulbs === 'yes') score += 8;
 
   return clamp(score);
 }
 
-function scoreElectricity(a) {
-  let score = 70;
-  const acHrs = Number(a.acHoursPerWeek) || 0;
-  const geyserHrs = Number(a.geyserHoursPerWeek) || 0;
-  const tvHrs = Number(a.tvHoursPerWeek) || 0;
-  const fanHrs = Number(a.fanHoursPerDay) || 0;
-  const washLoads = Number(a.washingLoadsPerWeek) || 0;
+function scoreTransport(a) {
+  let score = 55;
 
-  // AC penalty (1.55 kWh/hr - heaviest residential load)
-  if (acHrs > 42) score -= 25;
-  else if (acHrs > 28) score -= 18;
-  else if (acHrs > 14) score -= 10;
-  else if (acHrs > 7) score -= 4;
+  // Vehicle type
+  const v = a.vehicleType;
+  if (v === 'walk_cycle' || v === 'none') score += 25;
+  else if (v === 'public') score += 18;
+  else if (v === 'ev_2w') score += 12;
+  else if (v === 'ev_car') score += 8;
+  else if (v === 'petrol_2w') score -= 5;
+  else if (v === 'petrol_car') score -= 12;
+  else if (v === 'diesel_car') score -= 18;
 
-  // Geyser (2.0 kWh/hr)
-  if (geyserHrs > 10) score -= 15;
-  else if (geyserHrs > 5) score -= 8;
-  else if (geyserHrs > 2) score -= 3;
+  // Monthly fuel spend → CO₂ calculation
+  const fuelSpend = getFuelMidpoint(a.monthlyFuelSpend);
+  if (fuelSpend === 0) score += 5;
+  else if (fuelSpend <= 1000) score -= 2;
+  else if (fuelSpend <= 2500) score -= 8;
+  else if (fuelSpend <= 5000) score -= 15;
+  else if (fuelSpend <= 10000) score -= 22;
+  else score -= 30;
 
-  // TV
-  if (tvHrs > 35) score -= 8;
-  else if (tvHrs > 21) score -= 4;
-  else if (tvHrs > 14) score -= 2;
+  // Daily commute distance
+  const commute = a.dailyCommuteKm;
+  if (commute === 'wfh' || commute === '0-2') score += 8;
+  else if (commute === '2-5') score += 3;
+  else if (commute === '5-15') score -= 3;
+  else if (commute === '15-30') score -= 8;
+  else if (commute === '30+') score -= 15;
 
-  // Fan
-  if (fanHrs > 20) score -= 5;
-  else if (fanHrs > 14) score -= 2;
+  // Public transport usage
+  const pt = a.publicTransportUsage;
+  if (pt === 'daily') score += 12;
+  else if (pt === 'few_week') score += 7;
+  else if (pt === 'few_month') score += 3;
+  else if (pt === 'rarely') score -= 2;
+  else if (pt === 'never') score -= 5;
 
-  // Washing
-  if (washLoads >= 7) score -= 10;
-  else if (washLoads >= 5) score -= 7;
-  else if (washLoads >= 3) score -= 3;
-
-  // Positive behaviors
-  if (a.ledBulbsUsed === true || a.ledBulbsUsed === 'yes') score += 10;
-  if (a.solarAvailable === true || a.solarAvailable === 'yes') score += 15;
-  if (a.efficientAppliances === true || a.efficientAppliances === 'yes') score += 8;
+  // Carpooling
+  const cp = a.carpooling;
+  if (cp === 'regularly') score += 5;
+  else if (cp === 'sometimes') score += 2;
+  else if (cp === 'no_vehicle') score += 3;
 
   return clamp(score);
 }
 
 function scoreFood(a) {
-  let score = 65;
-  const vegMeals = Number(a.vegMealsPerWeek) || 0;
-  const nonVegMeals = Number(a.nonVegMealsPerWeek) || 0;
+  let score = 60;
 
-  // Veg bonus (0.7 kg CO₂e per veg meal vs 2.4 for chicken)
-  score += Math.min((vegMeals / 21) * 15, 15);
+  // Diet type
+  const diet = a.dietType;
+  if (diet === 'vegan') score += 20;
+  else if (diet === 'veg') score += 15;
+  else if (diet === 'eggetarian') score += 10;
+  else if (diet === 'non_veg_occasional') score += 2;
+  else if (diet === 'non_veg_regular') score -= 8;
+  else if (diet === 'non_veg_daily') score -= 18;
 
-  // Non-veg penalty
-  score -= Math.min(nonVegMeals * 1.5, 18);
+  // Food ordering frequency
+  const orders = a.monthlyFoodOrdering;
+  if (orders === '0') score += 10;
+  else if (orders === '1-4') score += 3;
+  else if (orders === '5-10') score -= 5;
+  else if (orders === '10-20') score -= 12;
+  else if (orders === '20+') score -= 20;
 
-  // Food delivery
-  const fd = a.foodDeliveryPerWeek;
-  if (fd === 'daily') score -= 15;
-  else if (fd === '5-7') score -= 10;
-  else if (fd === '3-4') score -= 6;
-  else if (fd === '1-2') score -= 2;
+  // Food spend (proxy for packaging and delivery impact)
+  const spend = a.monthlyFoodSpend;
+  if (spend === '0') score += 5;
+  else if (spend === '1-1000') score += 2;
+  else if (spend === '1000-3000') score -= 3;
+  else if (spend === '3000-5000') score -= 8;
+  else if (spend === '5000+') score -= 15;
 
-  // Packaged food
-  const pf = a.packagedFoodUsage;
-  if (pf === 'always') score -= 12;
-  else if (pf === 'often') score -= 7;
-  else if (pf === 'sometimes') score -= 3;
+  // Food waste
+  const waste = a.foodWaste;
+  if (waste === 'almost_none') score += 8;
+  else if (waste === 'little') score += 2;
+  else if (waste === 'moderate') score -= 5;
+  else if (waste === 'significant') score -= 15;
 
-  // Food waste (India wastes 68 kg/person/year - FAO)
-  const fw = a.foodWasteLevel;
-  if (fw === 'high') score -= 15;
-  else if (fw === 'moderate') score -= 7;
-  else if (fw === 'small') score -= 2;
-  else if (fw === 'none') score += 5;
-
-  // Local food
-  const lf = a.localFoodPreference;
-  if (lf === 'always') score += 8;
-  else if (lf === 'often') score += 5;
-  else if (lf === 'sometimes') score += 2;
-
-  // Bottled water
-  const bw = a.bottledWaterUsage;
-  if (bw === 'daily') score -= 10;
-  else if (bw === 'weekly') score -= 5;
-  else if (bw === 'sometimes') score -= 2;
-  else if (bw === 'never') score += 3;
+  // Local food preference
+  const local = a.localFood;
+  if (local === 'always') score += 8;
+  else if (local === 'mostly') score += 5;
+  else if (local === 'sometimes') score += 1;
+  else if (local === 'rarely') score -= 5;
 
   return clamp(score);
 }
 
 function scoreWater(a) {
-  let score = 70;
+  let score = 65;
 
-  // Bath type (real litres from REAL_DATA)
-  const bt = a.bathType;
-  if (bt === 'bucket') score += 15;        // 12L
-  else if (bt === 'short_shower') score += 5; // 35L
-  else if (bt === 'medium_shower') score -= 5; // 70L
-  else if (bt === 'long_shower') score -= 15;  // 120L
-  else if (bt === 'bath_tub') score -= 20;     // 180L
+  // Bathing method
+  const bath = a.bathingMethod;
+  if (bath === 'bucket') score += 15;
+  else if (bath === 'both') score += 5;
+  else if (bath === 'short_shower') score -= 5;
+  else if (bath === 'long_shower') score -= 18;
 
-  // Laundry (130L per top-load)
-  const laundry = Number(a.laundryLoadsPerWeek) || 0;
-  if (laundry >= 7) score -= 12;
-  else if (laundry >= 5) score -= 7;
-  else if (laundry >= 3) score -= 3;
+  // Washing machine frequency
+  const wash = a.washingFrequency;
+  if (wash === '0') score += 8;
+  else if (wash === '1-4') score += 3;
+  else if (wash === '5-8') score -= 3;
+  else if (wash === '8-12') score -= 8;
+  else if (wash === '12+') score -= 15;
 
-  // Vehicle wash (hose=175L vs bucket=20L)
-  const vw = a.vehicleWashFrequency;
-  if (vw === 'multiple_week') score -= 15;
-  else if (vw === 'weekly') score -= 10;
-  else if (vw === 'biweekly') score -= 5;
-  else if (vw === 'monthly') score -= 1;
-  else if (vw === 'never') score += 3;
+  // Tap habit
+  if (a.tapHabit === true || a.tapHabit === 'yes') score += 10;
+  else score -= 8;
 
-  if (a.waterReuseHabits === true || a.waterReuseHabits === 'yes') score += 10;
-  if (a.rainwaterHarvesting === true || a.rainwaterHarvesting === 'yes') score += 15;
-  if (a.leakageAwareness === true || a.leakageAwareness === 'yes') score += 5;
+  // Water reuse
+  if (a.waterReuse === true || a.waterReuse === 'yes') score += 10;
+
+  // Leak fixing
+  if (a.leakFixing === true || a.leakFixing === 'yes') score += 5;
 
   return clamp(score);
 }
 
 function scoreWaste(a) {
-  let score = 55; // India only processes 24% of solid waste
+  let score = 50;
 
-  if (a.segregationPracticed === true || a.segregationPracticed === 'yes') score += 20;
-  if (a.compostingPracticed === true || a.compostingPracticed === 'yes') score += 15;
+  // Dustbin fill frequency (less = better)
+  const fill = a.wasteFillDays;
+  if (fill === 'longer') score += 15;
+  else if (fill === 'weekly') score += 8;
+  else if (fill === '2-3days') score -= 2;
+  else if (fill === 'daily') score -= 10;
 
-  const cb = a.clothBagUsage;
-  if (cb === 'always') score += 10;
-  else if (cb === 'often') score += 6;
-  else if (cb === 'sometimes') score += 2;
-  else if (cb === 'rarely') score -= 5;
+  // Segregation
+  if (a.wasteSegregation === true || a.wasteSegregation === 'yes') score += 20;
 
-  const sup = a.singleUsePlastic;
-  if (sup === 'never') score += 5;
-  else if (sup === 'rarely') score -= 1;
-  else if (sup === 'sometimes') score -= 5;
-  else if (sup === 'often') score -= 12;
-  else if (sup === 'always') score -= 18;
+  // Plastic usage
+  const plastic = a.plasticUsage;
+  if (plastic === 'never') score += 10;
+  else if (plastic === 'rarely') score += 4;
+  else if (plastic === 'sometimes') score -= 5;
+  else if (plastic === 'often') score -= 15;
 
-  const rh = a.reuseHabit;
-  if (rh === 'always') score += 10;
-  else if (rh === 'often') score += 6;
-  else if (rh === 'sometimes') score += 2;
-  else if (rh === 'rarely') score -= 3;
-
-  const ew = a.eWasteDisposal;
-  if (ew === 'proper_recycler') score += 7;
-  else if (ew === 'kabadiwala') score += 3;
-  else if (ew === 'trash') score -= 8;
+  // E-waste disposal
+  const ew = a.eWaste;
+  if (ew === 'recycler') score += 8;
+  else if (ew === 'kabadiwala') score += 4;
+  else if (ew === 'trash') score -= 10;
   else if (ew === 'stored') score -= 2;
 
-  const pl = a.plasticLevel;
-  if (pl === 'very_low') score += 5;
-  else if (pl === 'low') score += 2;
-  else if (pl === 'moderate') score -= 3;
-  else if (pl === 'high') score -= 10;
+  // Composting
+  if (a.composting === true || a.composting === 'yes') score += 15;
 
   return clamp(score);
 }
 
-function scoreLifestyle(a) {
-  let score = 75;
-  const screenHrs = Number(a.screenTimeHours) || 0;
-  const streamHrs = Number(a.streamingHoursPerWeek) || 0;
+function scoreShopping(a) {
+  let score = 70;
 
-  if (screenHrs > 10) score -= 18;
-  else if (screenHrs > 8) score -= 13;
-  else if (screenHrs > 6) score -= 8;
-  else if (screenHrs > 4) score -= 4;
-  else if (screenHrs <= 2) score += 5;
+  // Online orders per month
+  const orders = a.onlineOrdersPerMonth;
+  if (orders === '0') score += 10;
+  else if (orders === '1-3') score += 3;
+  else if (orders === '4-8') score -= 5;
+  else if (orders === '8-15') score -= 12;
+  else if (orders === '15+') score -= 22;
 
-  if (streamHrs > 35) score -= 10;
-  else if (streamHrs > 21) score -= 6;
-  else if (streamHrs > 14) score -= 3;
+  // Return frequency
+  const ret = a.returnFrequency;
+  if (ret === 'never') score += 5;
+  else if (ret === 'sometimes') score -= 5;
+  else if (ret === 'often') score -= 15;
 
-  const os = a.onlineShoppingFrequency;
-  if (os === 'multiple_week') score -= 15;
-  else if (os === 'weekly') score -= 10;
-  else if (os === 'biweekly') score -= 5;
-  else if (os === 'monthly') score -= 2;
+  // Clothes buying
+  const clothes = a.clothesBuyingFrequency;
+  if (clothes === 'rarely') score += 8;
+  else if (clothes === 'seasonal') score += 2;
+  else if (clothes === 'quarterly') score -= 5;
+  else if (clothes === 'monthly') score -= 15;
 
-  const ff = a.fastFashionFrequency;
-  if (ff === 'frequent') score -= 15;
-  else if (ff === 'monthly') score -= 8;
-  else if (ff === 'seasonal') score -= 3;
-  else if (ff === 'rarely') score += 5;
+  // Internet usage
+  const internet = a.internetUsageHrs;
+  if (internet === '1-3') score += 5;
+  else if (internet === '3-6') score -= 2;
+  else if (internet === '6-10') score -= 8;
+  else if (internet === '10+') score -= 15;
 
-  // Clothes drying (replaces standbyDevices)
-  const cd = a.clothesDrying;
-  if (cd === 'sun_dry') score += 5;
-  else if (cd === 'machine_dryer') score -= 10;
-  else if (cd === 'mix') score -= 4;
-
-  return clamp(score);
-}
-
-function scorePollution(a) {
-  let score = 80;
-
-  const wb = a.wasteBurning;
-  if (wb === 'often') score -= 30;
-  else if (wb === 'sometimes') score -= 18;
-  else if (wb === 'rarely') score -= 8;
-
-  const vi = a.vehicleIdling;
-  if (vi === 'often') score -= 15;
-  else if (vi === 'sometimes') score -= 8;
-  else if (vi === 'rarely') score -= 3;
-  else if (vi === 'never') score += 5;
-
-  const ch = a.chemicalProducts;
-  if (ch === 'often') score -= 10;
-  else if (ch === 'sometimes') score -= 5;
-  else if (ch === 'rarely') score -= 1;
-  else if (ch === 'natural_only') score += 5;
-
-  const lt = a.littering;
-  if (lt === 'often') score -= 20;
-  else if (lt === 'sometimes') score -= 10;
-  else if (lt === 'rarely') score -= 3;
-  else if (lt === 'never') score += 5;
-
-  const fc = a.firecrackerUsage;
-  if (fc === 'heavy') score -= 15;
-  else if (fc === 'moderate') score -= 8;
-  else if (fc === 'minimal') score -= 2;
-  else if (fc === 'none') score += 5;
+  // Streaming
+  const stream = a.streamingHours;
+  if (stream === '0-1') score += 3;
+  else if (stream === '1-3') score -= 2;
+  else if (stream === '3-5') score -= 8;
+  else if (stream === '5+') score -= 15;
 
   return clamp(score);
 }
 
-function scoreBonus(a) {
-  let score = 20;
-  const toggles = [
-    'publicTransportPreference',
-    'reusableBottleUsage',
-    'treePlantCare',
-    'repairInsteadOfReplace',
-    'communityParticipation',
-    'sustainabilityAwareness',
-  ];
-  toggles.forEach(key => {
-    if (a[key] === true || a[key] === 'yes') score += 15;
-  });
+function scoreGreen(a) {
+  let score = 25;
+
+  // Plants
+  const plants = a.plantsAtHome;
+  if (plants === 'garden') score += 20;
+  else if (plants === 'balcony') score += 14;
+  else if (plants === 'few') score += 7;
+
+  // Plant count bonus
+  const count = Number(a.plantCount) || 0;
+  score += Math.min(count * 0.5, 10);
+
+  // Repair vs replace
+  const repair = a.repairOrReplace;
+  if (repair === 'always_repair') score += 15;
+  else if (repair === 'mostly_repair') score += 10;
+  else if (repair === 'depends') score += 4;
+  else if (repair === 'usually_replace') score -= 5;
+
+  // Toggle bonuses
+  if (a.reusableBags === true || a.reusableBags === 'yes') score += 8;
+  if (a.reusableBottle === true || a.reusableBottle === 'yes') score += 6;
+  if (a.communityGreen === true || a.communityGreen === 'yes') score += 10;
+  if (a.sustainabilityAwareness === true || a.sustainabilityAwareness === 'yes') score += 6;
+
   return clamp(score);
 }
 
@@ -306,66 +304,71 @@ function getScoreBand(score) {
 
 function buildImpactSummary(a) {
   const impacts = [];
-  const petrol2wKm = Number(a.petrolTwoWheelerKm) || 0;
-  const petrolCarKm = Number(a.petrolCarKm) || 0;
-  const dieselCarKm = Number(a.dieselCarKm) || 0;
-  const acHrs = Number(a.acHoursPerWeek) || 0;
-  const deliveries = a.foodDeliveryPerWeek;
+  const state = a.state || 'TN';
 
-  const totalFossilKm = petrol2wKm + petrolCarKm + dieselCarKm;
-  if (totalFossilKm > 0) {
-    const weeklyKg = (petrol2wKm * REAL_DATA.PETROL_TWO_WHEELER_CO2_PER_KM +
-      petrolCarKm * REAL_DATA.PETROL_CAR_CO2_PER_KM +
-      dieselCarKm * REAL_DATA.DIESEL_CAR_CO2_PER_KM) / 1000;
-    const yearlyTonnes = (weeklyKg * 52 / 1000).toFixed(2);
-    impacts.push(`You travel ${totalFossilKm} km/week by fossil fuel vehicles → emits ~${weeklyKg.toFixed(1)} kg CO₂/week (${yearlyTonnes} tonnes/year)`);
+  // Electricity impact
+  const bill = getBillMidpoint(a.monthlyElectricityBill);
+  const monthlyUnits = REAL_DATA.unitsFromBill(bill, state);
+  const monthlyCO2 = (monthlyUnits * REAL_DATA.INDIA_GRID_CO2_INTENSITY).toFixed(1);
+  impacts.push(`Your electricity usage is ~${monthlyUnits} units/month → ${monthlyCO2} kg CO₂/month (${(monthlyCO2 * 12 / 1000).toFixed(2)} tonnes/year)`);
+
+  // Fuel/transport impact
+  const fuelSpend = getFuelMidpoint(a.monthlyFuelSpend);
+  if (fuelSpend > 0) {
+    const pricePerLitre = a.vehicleType === 'diesel_car' ? REAL_DATA.DIESEL_PRICE_PER_LITRE : REAL_DATA.PETROL_PRICE_PER_LITRE;
+    const litres = fuelSpend / pricePerLitre;
+    const co2PerLitre = a.vehicleType === 'diesel_car' ? REAL_DATA.DIESEL_CO2_PER_LITRE : REAL_DATA.PETROL_CO2_PER_LITRE;
+    const monthlyCO2Transport = (litres * co2PerLitre).toFixed(1);
+    impacts.push(`Fuel spend ₹${fuelSpend}/month → ~${litres.toFixed(1)}L → ${monthlyCO2Transport} kg CO₂/month`);
   }
 
-  if (acHrs > 0) {
-    const weeklyKwh = (acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR).toFixed(1);
-    const weeklyCO2 = (acHrs * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.INDIA_GRID_CO2_INTENSITY).toFixed(1);
-    impacts.push(`Your AC usage of ${acHrs} hrs/week consumes ~${weeklyKwh} kWh and emits ~${weeklyCO2} kg CO₂/week`);
+  // Food delivery impact
+  const orderMap = { '0': 0, '1-4': 2.5, '5-10': 7.5, '10-20': 15, '20+': 25 };
+  const foodOrders = orderMap[a.monthlyFoodOrdering] || 0;
+  if (foodOrders > 0) {
+    const deliveryCO2 = (foodOrders * REAL_DATA.FOOD_DELIVERY_CO2E_PER_ORDER).toFixed(1);
+    impacts.push(`${foodOrders} food orders/month adds ~${deliveryCO2} kg CO₂e/month from packaging and delivery`);
   }
 
-  const bt = a.bathType;
-  const bathLitres = bt === 'bucket' ? 12 : bt === 'short_shower' ? 35 : bt === 'medium_shower' ? 70 : bt === 'long_shower' ? 120 : bt === 'bath_tub' ? 180 : 0;
-  if (bathLitres > 12 && bt) {
-    const pctMore = (((bathLitres - 12) / 12) * 100).toFixed(0);
-    impacts.push(`Your bathing method uses ~${bathLitres} litres/bath vs bucket's 12 litres — ${pctMore}% more water`);
-  }
+  // Water impact
+  const bathMap = { bucket: 15, short_shower: 40, long_shower: 75, both: 28 };
+  const bathLitres = bathMap[a.bathingMethod] || 28;
+  const dailyWater = bathLitres + 30 + 20; // bath + cooking/cleaning + flushing etc.
+  impacts.push(`Your bathing uses ~${bathLitres}L/day. BIS recommends total 135L/person/day — you use ~${dailyWater}L/day estimated`);
 
-  let delCount = 0;
-  if (deliveries === 'daily') delCount = 7;
-  else if (deliveries === '5-7') delCount = 6;
-  else if (deliveries === '3-4') delCount = 3.5;
-  else if (deliveries === '1-2') delCount = 1.5;
-  if (delCount > 0) {
-    const yearlyKg = (delCount * REAL_DATA.FOOD_DELIVERY_EXTRA_CO2E_KG * 52).toFixed(1);
-    impacts.push(`${delCount} food delivery orders/week adds ~${yearlyKg} kg CO₂e/year from packaging and last-mile delivery`);
-  }
-
-  const segregation = a.segregationPracticed;
-  if (segregation !== true && segregation !== 'yes') {
-    impacts.push(`Not segregating waste contributes to the 76% of Indian solid waste that goes unprocessed (CPCB 2022)`);
+  // Online shopping
+  const orderCountMap = { '0': 0, '1-3': 2, '4-8': 6, '8-15': 11, '15+': 18 };
+  const onlineOrders = orderCountMap[a.onlineOrdersPerMonth] || 0;
+  if (onlineOrders > 0) {
+    impacts.push(`${onlineOrders} online orders/month = ${(onlineOrders * REAL_DATA.DELIVERY_PACKAGING_CO2E_KG).toFixed(1)} kg CO₂e/month from packaging + transport`);
   }
 
   return impacts.slice(0, 5);
 }
 
+// Calculate % Earth impact
+function calcEarthImpactPercent(totalCO2Tonnes) {
+  // India total: 2.88 billion tonnes, population ~1.4 billion
+  // Individual share of India's CO₂ = personal / national total × 100
+  const indiaTotalKg = REAL_DATA.INDIA_CO2_BILLION_TONNES_2022 * 1e9;
+  const personalKg = totalCO2Tonnes * 1000;
+  const pct = (personalKg / indiaTotalKg) * 100;
+  return pct.toExponential(2);
+}
+
 export function calculateScore(answers) {
   const categoryScores = {
-    transport: scoreTransport(answers),
     electricity: scoreElectricity(answers),
+    transport: scoreTransport(answers),
     food: scoreFood(answers),
-    waste: scoreWaste(answers),
     water: scoreWater(answers),
-    lifestyle: scoreLifestyle(answers),
-    pollution: scorePollution(answers),
-    bonus: scoreBonus(answers),
+    waste: scoreWaste(answers),
+    shopping: scoreShopping(answers),
+    green: scoreGreen(answers),
   };
 
-  const weightedScores = {};
   let totalWeighted = 0;
+  const weightedScores = {};
   Object.keys(WEIGHTS).forEach(cat => {
     weightedScores[cat] = (categoryScores[cat] * WEIGHTS[cat]) / 100;
     totalWeighted += weightedScores[cat];
@@ -374,7 +377,6 @@ export function calculateScore(answers) {
   const finalScore = clamp(Math.round(totalWeighted));
   const scoreBand = getScoreBand(finalScore);
 
-  // Find strengths and weaknesses
   const sorted = Object.entries(categoryScores).sort((a, b) => b[1] - a[1]);
   const strengths = sorted.slice(0, 3).map(([cat, score]) => ({ category: cat, score }));
   const weaknesses = sorted.slice(-3).reverse().map(([cat, score]) => ({ category: cat, score }));
@@ -389,6 +391,7 @@ export function calculateScore(answers) {
     strengths,
     weaknesses,
     impactSummary,
+    earthImpactPercent: null, // filled by yearly estimator
   };
 }
 
@@ -397,37 +400,37 @@ export function simulateImprovedScore(answers, changes) {
 
   changes.forEach(change => {
     switch (change) {
-      case 'reduce_ac':
-        modified.acHoursPerWeek = Math.max(0, (Number(modified.acHoursPerWeek) || 0) / 2);
+      case 'reduce_electricity':
+        // Simulate dropping one bill slab
+        if (modified.monthlyElectricityBill === '5000+') modified.monthlyElectricityBill = '3000-5000';
+        else if (modified.monthlyElectricityBill === '3000-5000') modified.monthlyElectricityBill = '1500-3000';
+        else if (modified.monthlyElectricityBill === '1500-3000') modified.monthlyElectricityBill = '700-1500';
         break;
-      case 'switch_to_led':
-        modified.ledBulbsUsed = 'yes';
+      case 'switch_public_transport':
+        modified.publicTransportUsage = 'daily';
+        modified.monthlyFuelSpend = '0';
         break;
-      case 'use_public_transport':
-        modified.petrolCarKm = Math.max(0, (Number(modified.petrolCarKm) || 0) * 0.3);
-        modified.busMetroTrainKm = (Number(modified.busMetroTrainKm) || 0) + 50;
-        break;
-      case 'start_segregation':
-        modified.segregationPracticed = 'yes';
-        break;
-      case 'reduce_food_delivery':
-        modified.foodDeliveryPerWeek = '1-2';
-        break;
-      case 'reusable_bags':
-        modified.clothBagUsage = 'always';
-        modified.singleUsePlastic = 'never';
+      case 'reduce_food_orders':
+        modified.monthlyFoodOrdering = '1-4';
+        modified.monthlyFoodSpend = '1-1000';
         break;
       case 'bucket_bath':
-        modified.bathType = 'bucket';
+        modified.bathingMethod = 'bucket';
         break;
-      case 'stop_idling':
-        modified.vehicleIdling = 'never';
+      case 'start_segregation':
+        modified.wasteSegregation = 'yes';
+        modified.composting = 'yes';
         break;
-      case 'reduce_fast_fashion':
-        modified.fastFashionFrequency = 'rarely';
+      case 'reduce_online_shopping':
+        modified.onlineOrdersPerMonth = '1-3';
+        modified.returnFrequency = 'never';
         break;
-      case 'stop_waste_burning':
-        modified.wasteBurning = 'never';
+      case 'grow_plants':
+        modified.plantsAtHome = 'balcony';
+        modified.plantCount = 10;
+        break;
+      case 'repair_first':
+        modified.repairOrReplace = 'always_repair';
         break;
     }
   });

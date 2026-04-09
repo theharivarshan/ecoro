@@ -12,7 +12,7 @@ export default function Footer() {
           Scores calculated using verified Indian environmental data from ARAI, BEE, CEA, CPCB, CWC, and IEA.
           AI provides interpretation, not scores.
         </p>
-        <p className="text-xs text-gray-500">&copy; {new Date().getFullYear()} AI Sustainability Analyzer. For educational purposes.</p>
+        <p className="text-xs font-mono text-gray-500">&copy; {new Date().getFullYear()} AI Sustainability Analyzer. For educational purposes.</p>
       </div>
     </footer>
   );

@@ -1,29 +1,28 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, ClipboardList, BarChart3, Sparkles, Droplets, Zap, Truck, Utensils, Trash2, ShoppingBag, Wind, Leaf } from 'lucide-react';
+import { ArrowRight, ClipboardList, BarChart3, Sparkles, Droplets, Zap, Truck, Utensils, Trash2, ShoppingBag, Leaf, Globe } from 'lucide-react';
 import REAL_DATA from '../data/realWorldData';
 
 const stats = [
-  { value: `${REAL_DATA.INDIA_CO2_BILLION_TONNES_2022}B tonnes`, label: 'CO2/year (IEA 2022)', icon: Wind },
+  { value: `${REAL_DATA.INDIA_CO2_BILLION_TONNES_2022}B tonnes`, label: 'CO₂/year (IEA 2022)', icon: Globe },
   { value: `${REAL_DATA.INDIA_WATER_STRESS_POPULATION_M}M`, label: 'Indians face water scarcity', icon: Droplets },
   { value: `${REAL_DATA.INDIA_SOLID_WASTE_PROCESSED_PERCENT}%`, label: 'solid waste processed', icon: Trash2 },
-  { value: `${REAL_DATA.INDIA_PLASTIC_WASTE_MT_PER_YEAR}MT`, label: 'plastic waste/year', icon: ShoppingBag },
+  { value: `${REAL_DATA.INDIA_PER_CAPITA_CO2_TONNES}t`, label: 'CO₂ per person/year', icon: Zap },
 ];
 
 const categories = [
-  { icon: Truck, name: 'Transportation', weight: 20, stat: `Transport = ${REAL_DATA.INDIA_TRANSPORT_GHG_PERCENT}% of India's GHG (MoEFCC)` },
-  { icon: Zap, name: 'Electricity', weight: 15, stat: `Grid CO2: ${REAL_DATA.INDIA_GRID_CO2_INTENSITY} kg/kWh (CEA 2023)` },
-  { icon: Utensils, name: 'Food & Diet', weight: 15, stat: `Veg meal: 0.7 kg CO2e vs chicken: 2.4 kg (IPCC)` },
-  { icon: Trash2, name: 'Waste', weight: 15, stat: `India generates ${REAL_DATA.INDIA_SOLID_WASTE_MT_PER_YEAR}MT solid waste/yr` },
-  { icon: Droplets, name: 'Water', weight: 10, stat: `Per capita: ${REAL_DATA.INDIA_WATER_PER_CAPITA_CUBIC_M} m3/yr (stress: 1,700)` },
-  { icon: ShoppingBag, name: 'Lifestyle', weight: 10, stat: 'Fashion = 10% of global carbon (UNEP)' },
-  { icon: Wind, name: 'Pollution', weight: 10, stat: `Delhi: ${REAL_DATA.DELHI_AQI_BAD_DAYS_PER_YEAR} days/yr AQI>200 (CPCB)` },
-  { icon: Leaf, name: 'Green Bonus', weight: 5, stat: `${REAL_DATA.INDIA_RENEWABLE_ENERGY_PERCENT}% renewable capacity (MNRE 2024)` },
+  { icon: Zap, name: 'Electricity', weight: 18, stat: `Grid CO₂: ${REAL_DATA.INDIA_GRID_CO2_INTENSITY} kg/kWh (CEA 2023)` },
+  { icon: Truck, name: 'Transportation', weight: 18, stat: `Transport = ${REAL_DATA.INDIA_TRANSPORT_GHG_PERCENT}% of India's GHG` },
+  { icon: Utensils, name: 'Food & Diet', weight: 16, stat: 'Veg: 0.7 kg CO₂e vs Chicken: 2.4 kg (IPCC)' },
+  { icon: Droplets, name: 'Water Usage', weight: 14, stat: `BIS standard: ${REAL_DATA.INDIA_DAILY_WATER_PER_CAPITA_LITRES}L/person/day` },
+  { icon: Trash2, name: 'Waste & Recycling', weight: 14, stat: `India generates ${REAL_DATA.INDIA_SOLID_WASTE_MT_PER_YEAR}MT solid waste/yr` },
+  { icon: ShoppingBag, name: 'Shopping & Digital', weight: 10, stat: `${REAL_DATA.INDIA_INTERNET_USERS_M}M internet users, ${REAL_DATA.INDIA_AVG_DATA_GB_PER_MONTH} GB/month avg` },
+  { icon: Leaf, name: 'Green Habits', weight: 10, stat: `${REAL_DATA.INDIA_RENEWABLE_ENERGY_PERCENT}% renewable capacity (MNRE 2024)` },
 ];
 
 const steps = [
-  { num: 1, icon: ClipboardList, title: 'Answer Questions', desc: '55 questions across 9 categories about your daily habits' },
-  { num: 2, icon: BarChart3, title: 'Get Your Score', desc: 'Science-backed scoring using real Indian environmental data' },
-  { num: 3, icon: Sparkles, title: 'AI Action Plan', desc: 'Personalized recommendations with real savings estimates' },
+  { num: 1, icon: ClipboardList, title: 'Answer Simple Questions', desc: 'Monthly bills, daily habits, food preferences — things you already know' },
+  { num: 2, icon: BarChart3, title: 'Get Your Score', desc: 'Science-backed scoring using real Indian data from ARAI, BEE, CEA, CPCB' },
+  { num: 3, icon: Sparkles, title: 'AI Recommendations', desc: 'Personalized action plan with real impact estimates for your lifestyle' },
 ];
 
 export default function Home() {
@@ -32,14 +31,15 @@ export default function Home() {
       {/* Hero */}
       <section className="bg-forest-900 text-white py-20 px-4">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4">Know Your Environmental Impact.</h1>
-          <p className="text-forest-200 text-lg mb-8 max-w-2xl mx-auto">
-            Answer 55 questions. Get a science-backed sustainability score, real CO2 footprint calculation, and AI-powered Indian lifestyle recommendations.
+          <div className="font-mono text-xs tracking-widest text-forest-400 uppercase mb-4">// sustainability.analyze()</div>
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold mb-5 tracking-tight">Know Your Environmental Impact.</h1>
+          <p className="text-forest-200 text-lg mb-8 max-w-2xl mx-auto leading-relaxed">
+            Answer simple questions about your monthly bills, food habits, and daily choices. Get your sustainability score, CO₂ footprint, and personalized recommendations.
           </p>
-          <Link to="/assessment" className="inline-flex items-center gap-2 bg-white text-forest-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-forest-100 transition-colors">
+          <Link to="/assessment" className="inline-flex items-center gap-2 bg-white text-forest-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-forest-100 transition-all hover:scale-105 shadow-lg">
             Start Free Assessment <ArrowRight className="w-5 h-5" />
           </Link>
-          <p className="text-forest-400 text-sm mt-4">Takes 5-8 minutes · No login required · Powered by real Indian environmental data</p>
+          <p className="text-forest-400 text-sm mt-4 font-mono tracking-wide">5–8 min · No login · Real Indian environmental data</p>
         </div>
       </section>
 
@@ -50,7 +50,7 @@ export default function Home() {
             <div key={i} className="flex items-center gap-3 text-white">
               <s.icon className="w-5 h-5 text-forest-300 flex-shrink-0" />
               <div>
-                <div className="font-bold text-sm">{s.value}</div>
+                <div className="font-mono font-bold text-sm">{s.value}</div>
                 <div className="text-forest-300 text-xs">{s.label}</div>
               </div>
             </div>
@@ -68,7 +68,7 @@ export default function Home() {
                 <div className="w-12 h-12 bg-forest-100 rounded-xl flex items-center justify-center mx-auto mb-4">
                   <s.icon className="w-6 h-6 text-forest-700" />
                 </div>
-                <div className="text-xs text-forest-600 font-bold mb-1">STEP {s.num}</div>
+                <div className="text-xs text-forest-600 font-mono font-bold mb-1">STEP {s.num}</div>
                 <h3 className="font-semibold text-lg text-gray-900 mb-2">{s.title}</h3>
                 <p className="text-sm text-gray-500">{s.desc}</p>
               </div>
@@ -86,7 +86,7 @@ export default function Home() {
               <div key={i} className="bg-gray-50 rounded-xl border border-gray-200 p-4 hover:-translate-y-1 hover:shadow-md transition-all">
                 <c.icon className="w-8 h-8 text-forest-600 mb-2" />
                 <h4 className="font-semibold text-gray-900 text-sm">{c.name}</h4>
-                <div className="text-xs text-forest-600 font-medium mb-1">Weight: {c.weight}%</div>
+                <div className="text-xs text-forest-600 font-mono font-medium mb-1">Weight: {c.weight}%</div>
                 <p className="text-xs text-gray-500">{c.stat}</p>
               </div>
             ))}
@@ -97,9 +97,9 @@ export default function Home() {
       {/* Final CTA */}
       <section className="bg-forest-800 text-white py-16 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="font-display text-3xl font-bold mb-4">Ready to calculate your sustainability score?</h2>
-          <p className="text-forest-200 mb-8">Join thousands taking action for a greener India.</p>
-          <Link to="/assessment" className="inline-flex items-center gap-2 bg-white text-forest-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-forest-100 transition-colors">
+          <h2 className="font-display text-3xl font-bold mb-4">Ready to know your sustainability score?</h2>
+          <p className="text-forest-200 mb-8">Simple questions a common person can answer. Real data. Real impact.</p>
+          <Link to="/assessment" className="inline-flex items-center gap-2 bg-white text-forest-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-forest-100 transition-all hover:scale-105 shadow-lg">
             Start Assessment <ArrowRight className="w-5 h-5" />
           </Link>
         </div>

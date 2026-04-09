@@ -23,14 +23,13 @@ export function getScoreColorClass(score) {
 }
 
 const CATEGORY_MAP = {
-  transport: { label: 'Transportation', icon: '🚗', color: 'blue' },
-  electricity: { label: 'Electricity', icon: '⚡', color: 'yellow' },
-  food: { label: 'Food & Diet', icon: '🍽️', color: 'orange' },
-  waste: { label: 'Waste Management', icon: '♻️', color: 'green' },
-  water: { label: 'Water Usage', icon: '💧', color: 'cyan' },
-  lifestyle: { label: 'Lifestyle', icon: '🛍️', color: 'purple' },
-  pollution: { label: 'Pollution', icon: '🌫️', color: 'gray' },
-  bonus: { label: 'Green Bonus', icon: '🌿', color: 'emerald' },
+  electricity: { label: 'Electricity', icon: '⚡', color: 'yellow', weight: 18 },
+  transport: { label: 'Transportation', icon: '🚗', color: 'blue', weight: 18 },
+  food: { label: 'Food & Diet', icon: '🍽️', color: 'orange', weight: 16 },
+  water: { label: 'Water Usage', icon: '💧', color: 'cyan', weight: 14 },
+  waste: { label: 'Waste & Recycling', icon: '♻️', color: 'green', weight: 14 },
+  shopping: { label: 'Shopping & Digital', icon: '📦', color: 'purple', weight: 10 },
+  green: { label: 'Green Habits', icon: '🌿', color: 'emerald', weight: 10 },
 };
 
 export function getCategoryLabel(key) {
@@ -45,18 +44,22 @@ export function getCategoryColor(key) {
   return CATEGORY_MAP[key]?.color || 'gray';
 }
 
+export function getCategoryWeight(key) {
+  return CATEGORY_MAP[key]?.weight || 0;
+}
+
 export function formatAgeGroup(val) {
-  const map = { under_18: 'Under 18', '18_25': '18-25', '26_35': '26-35', '36_50': '36-50', above_50: 'Above 50' };
+  const map = { under_18: 'Under 18', '18_25': '18–25', '26_35': '26–35', '36_50': '36–50', above_50: 'Above 50' };
   return map[val] || val || 'Not specified';
 }
 
-export function formatCityType(val) {
-  const map = { metro: 'Metro City', tier2: 'Tier 2 City', tier3: 'Tier 3 City', rural: 'Rural Area' };
+export function formatGender(val) {
+  const map = { male: 'Male', female: 'Female', other: 'Other', prefer_not: 'Not specified' };
   return map[val] || val || 'Not specified';
 }
 
-export function formatLivingType(val) {
-  const map = { apartment: 'Apartment', independent_house: 'Independent House', hostel: 'Hostel', pg: 'PG Accommodation' };
+export function formatState(val) {
+  const map = { TN: 'Tamil Nadu', PY: 'Puducherry', OTHER: 'Other' };
   return map[val] || val || 'Not specified';
 }
 
@@ -82,18 +85,4 @@ export function formatINR(amount) {
 
 export function isYesValue(val) {
   return val === true || val === 'yes' || val === 'Yes';
-}
-
-export function truncate(text, maxLength = 100) {
-  if (!text || text.length <= maxLength) return text;
-  return text.slice(0, maxLength) + '...';
-}
-
-const WEIGHTS = {
-  transport: 20, electricity: 15, food: 15, waste: 15,
-  water: 10, lifestyle: 10, pollution: 10, bonus: 5,
-};
-
-export function getCategoryWeight(key) {
-  return WEIGHTS[key] || 0;
 }

@@ -67,8 +67,8 @@ export default function ScoreGauge({ score, size = 'md' }) {
         )}
       </svg>
       <div className="-mt-12 text-center">
-        <div className={`${fontSize} font-extrabold`} style={{ color }}>{animatedScore}</div>
-        <div className={`${labelSize} font-semibold text-gray-500`}>{label}</div>
+        <div className={`${fontSize} font-mono font-extrabold tracking-tight`} style={{ color }}>{animatedScore}</div>
+        <div className={`${labelSize} font-display font-semibold text-gray-500 tracking-wide uppercase`}>{label}</div>
       </div>
     </div>
   );

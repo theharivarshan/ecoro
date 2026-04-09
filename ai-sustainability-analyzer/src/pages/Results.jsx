@@ -23,12 +23,12 @@ export default function Results() {
   if (!scoringResult || !yearlyResult) return null;
 
   const { finalScore, scoreBand, categoryScores, strengths, weaknesses, impactSummary } = scoringResult;
-  const { annualizedMetrics: m, annualSummary } = yearlyResult;
+  const { annualizedMetrics: m, annualSummary, earthImpactPercent } = yearlyResult;
 
   const improvements = [
-    { key: 'bucket_bath', label: 'Switch to bucket bath', saving: `Saves ~${Math.round((REAL_DATA.MEDIUM_SHOWER_10MIN_LITRES - REAL_DATA.BUCKET_BATH_LITRES) * 365)} litres/year` },
-    { key: 'reduce_ac', label: 'Reduce AC usage by half', saving: `Cuts ~${Math.round((Number(answers.acHoursPerWeek) || 0) / 2 * REAL_DATA.AC_1P5TON_3STAR_KWH_PER_HR * REAL_DATA.INDIA_GRID_CO2_INTENSITY * 52)} kg CO₂/year` },
-    { key: 'use_public_transport', label: 'Switch to public transport', saving: `Cuts ~${Math.round(m.totalTransportCO2KgYear * 0.6)} kg CO2/year` },
+    { key: 'reduce_electricity', label: 'Reduce electricity by one slab', saving: `Cuts ~${Math.round(m.yearlyElectricityCO2Kg * 0.25)} kg CO₂/year` },
+    { key: 'switch_public_transport', label: 'Switch to public transport', saving: `Cuts ~${Math.round(m.yearlyTransportCO2Kg * 0.8)} kg CO₂/year` },
+    { key: 'bucket_bath', label: 'Switch to bucket baths', saving: `Saves ~${Math.round((75 - 15) * 365)} litres water/year` },
   ];
 
   const improvedResult = simulateImprovedScore(answers, improvements.map(i => i.key));
@@ -44,23 +44,21 @@ export default function Results() {
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false });
       el.style.display = 'none';
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      // A4 Landscape: 297mm × 210mm
+      const pdf = new jsPDF('l', 'mm', 'a4');
       const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = (canvas.height * pdfW) / canvas.width;
-      let position = 0;
-      const pageH = pdf.internal.pageSize.getHeight();
-      if (pdfH <= pageH) {
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
-      } else {
-        while (position < pdfH) {
-          pdf.addImage(imgData, 'PNG', 0, -position, pdfW, pdfH);
-          position += pageH;
-          if (position < pdfH) pdf.addPage();
-        }
-      }
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const ratio = Math.min(pdfW / imgW, pdfH / imgH);
+      const w = imgW * ratio;
+      const h = imgH * ratio;
+      const x = (pdfW - w) / 2;
+      const y = (pdfH - h) / 2;
+      pdf.addImage(imgData, 'PNG', x, y, w, h);
       const name = answers.name || 'user';
       const date = new Date().toISOString().split('T')[0];
-      pdf.save(`sustainability-report-${name.toLowerCase().replace(/\s+/g, '-')}-${date}.pdf`);
+      pdf.save(`sustainability-certificate-${name.toLowerCase().replace(/\s+/g, '-')}-${date}.pdf`);
     } catch (err) {
       console.error('PDF generation failed:', err);
     } finally {
@@ -76,6 +74,9 @@ export default function Results() {
           <ScoreGauge score={finalScore} size="lg" />
           <div className="mt-2 text-sm text-gray-500">{getReportDate()}</div>
           {answers.name && <div className="text-lg font-semibold text-gray-800 mt-1">{answers.name}&apos;s Sustainability Profile</div>}
+          {earthImpactPercent && (
+            <div className="mt-2 text-xs font-mono text-gray-400">You contribute {earthImpactPercent}% of India&apos;s annual CO₂ emissions</div>
+          )}
         </div>
 
         {/* Category Breakdown & Annual Projection */}
@@ -89,30 +90,30 @@ export default function Results() {
           <h3 className="font-display text-xl font-bold text-forest-900 mb-4">Carbon Footprint Summary</h3>
           <div className="flex flex-col sm:flex-row items-center gap-6">
             <div className="text-center">
-              <div className="text-4xl font-extrabold text-forest-800">{annualSummary.totalPersonalCO2Tonnes}</div>
-              <div className="text-sm text-gray-500">Your CO2e/year</div>
+              <div className="text-4xl font-mono font-extrabold text-forest-800">{annualSummary.totalPersonalCO2Tonnes}</div>
+              <div className="text-sm text-gray-500">Your CO₂e/year</div>
             </div>
             <div className="flex-1 w-full">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs text-gray-500 w-24">You</span>
                 <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-forest-600 rounded-full" style={{ width: `${Math.min(100, (m.totalCO2eKgYear / 4700) * 100)}%` }} />
+                  <div className="h-full bg-forest-600 rounded-full" style={{ width: `${Math.min(100, (m.totalCO2KgYear / 4700) * 100)}%` }} />
                 </div>
-                <span className="text-xs font-medium w-20 text-right">{annualSummary.totalPersonalCO2Tonnes}</span>
+                <span className="text-xs font-mono font-medium w-20 text-right">{annualSummary.totalPersonalCO2Tonnes}</span>
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs text-gray-500 w-24">India avg</span>
                 <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden">
                   <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(1900 / 4700) * 100}%` }} />
                 </div>
-                <span className="text-xs font-medium w-20 text-right">1.90 tonnes</span>
+                <span className="text-xs font-mono font-medium w-20 text-right">1.90 tonnes</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 w-24">Global avg</span>
                 <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden">
                   <div className="h-full bg-red-500 rounded-full" style={{ width: '100%' }} />
                 </div>
-                <span className="text-xs font-medium w-20 text-right">4.70 tonnes</span>
+                <span className="text-xs font-mono font-medium w-20 text-right">4.70 tonnes</span>
               </div>
             </div>
           </div>
@@ -126,7 +127,7 @@ export default function Results() {
             {strengths.map((s, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-green-100 last:border-0">
                 <span className="text-sm text-green-800">{getCategoryIcon(s.category)} {getCategoryLabel(s.category)}</span>
-                <span className="font-bold text-green-700">{s.score}/100</span>
+                <span className="font-mono font-bold text-green-700">{s.score}/100</span>
               </div>
             ))}
           </div>
@@ -135,7 +136,7 @@ export default function Results() {
             {weaknesses.map((w, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-b border-red-100 last:border-0">
                 <span className="text-sm text-red-800">{getCategoryIcon(w.category)} {getCategoryLabel(w.category)}</span>
-                <span className="font-bold text-red-700">{w.score}/100</span>
+                <span className="font-mono font-bold text-red-700">{w.score}/100</span>
               </div>
             ))}
           </div>
@@ -166,12 +167,12 @@ export default function Results() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-400">{finalScore}</div>
+              <div className="text-2xl font-mono font-bold text-gray-400">{finalScore}</div>
               <div className="text-xs text-gray-400">Current</div>
             </div>
             <ArrowRight className="w-6 h-6 text-forest-500" />
             <div className="text-center">
-              <div className="text-2xl font-bold text-forest-700">{improvedResult.finalScore}</div>
+              <div className="text-2xl font-mono font-bold text-forest-700">{improvedResult.finalScore}</div>
               <div className="text-xs text-forest-600">Projected</div>
             </div>
             <div className="text-sm text-forest-700 font-medium ml-2">
@@ -197,84 +198,98 @@ export default function Results() {
         </div>
       </div>
 
-      {/* Hidden A4 Certificate for PDF */}
-      <div ref={reportRef} id="report-content" style={{ display: 'none', width: '794px', minHeight: '1123px', background: 'white', fontFamily: 'Plus Jakarta Sans, sans-serif', position: 'relative', overflow: 'hidden' }}>
+      {/* ═══ Hidden A4 LANDSCAPE Certificate for PDF ═══ */}
+      <div ref={reportRef} id="report-content" style={{ display: 'none', width: '1123px', height: '794px', background: 'white', fontFamily: 'Inter, sans-serif', position: 'relative', overflow: 'hidden' }}>
         {/* Decorative border */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '12px solid #14532d', borderRadius: '4px', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: '12px', left: '12px', right: '12px', bottom: '12px', border: '2px solid #86efac', borderRadius: '2px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: '10px solid #14532d', borderRadius: '4px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', bottom: '10px', border: '2px solid #86efac', borderRadius: '2px', pointerEvents: 'none' }} />
 
         {/* Corner leaf decorations */}
-        <div style={{ position: 'absolute', top: '20px', left: '20px', fontSize: '28px', opacity: 0.3 }}>🌿</div>
-        <div style={{ position: 'absolute', top: '20px', right: '20px', fontSize: '28px', opacity: 0.3 }}>🌿</div>
-        <div style={{ position: 'absolute', bottom: '20px', left: '20px', fontSize: '28px', opacity: 0.3 }}>🌱</div>
-        <div style={{ position: 'absolute', bottom: '20px', right: '20px', fontSize: '28px', opacity: 0.3 }}>🌱</div>
+        <div style={{ position: 'absolute', top: '18px', left: '18px', fontSize: '24px', opacity: 0.3 }}>🌿</div>
+        <div style={{ position: 'absolute', top: '18px', right: '18px', fontSize: '24px', opacity: 0.3 }}>🌿</div>
+        <div style={{ position: 'absolute', bottom: '18px', left: '18px', fontSize: '24px', opacity: 0.3 }}>🌱</div>
+        <div style={{ position: 'absolute', bottom: '18px', right: '18px', fontSize: '24px', opacity: 0.3 }}>🌱</div>
 
-        <div style={{ padding: '50px 45px 40px' }}>
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-            <div style={{ fontSize: '13px', letterSpacing: '4px', color: '#16a34a', fontWeight: '700', textTransform: 'uppercase', marginBottom: '6px' }}>AI Sustainability Analyzer</div>
-            <h1 style={{ fontFamily: 'Playfair Display, serif', fontSize: '36px', color: '#14532d', margin: '0 0 4px', fontWeight: '700' }}>Certificate of Assessment</h1>
-            <div style={{ width: '80px', height: '3px', background: 'linear-gradient(to right, #16a34a, #14532d)', margin: '10px auto', borderRadius: '2px' }} />
-          </div>
-
-          {/* Name & Date */}
-          <div style={{ textAlign: 'center', margin: '18px 0' }}>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 4px' }}>This certifies that</p>
-            <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '30px', color: '#14532d', fontWeight: '700', margin: '0 0 4px' }}>{answers.name || 'Participant'}</p>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>has completed the sustainability assessment on {getReportDate()}</p>
-          </div>
-
-          {/* Score Circle */}
-          <div style={{ textAlign: 'center', margin: '20px 0 16px' }}>
-            <div style={{ display: 'inline-block', width: '120px', height: '120px', borderRadius: '50%', border: `6px solid ${scoreBand.color}`, background: '#f0fdf4', lineHeight: '108px', position: 'relative' }}>
-              <span style={{ fontSize: '44px', fontWeight: '800', color: scoreBand.color }}>{finalScore}</span>
+        <div style={{ padding: '35px 40px 25px', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+          {/* Top Row: Header + Score Circle */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            {/* Left: Title */}
+            <div>
+              <div style={{ fontSize: '11px', letterSpacing: '4px', color: '#16a34a', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>AI Sustainability Analyzer</div>
+              <h1 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '28px', color: '#14532d', margin: 0, fontWeight: '700' }}>Sustainability Certificate</h1>
+              <div style={{ width: '60px', height: '3px', background: 'linear-gradient(to right, #16a34a, #14532d)', margin: '6px 0', borderRadius: '2px' }} />
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>This certifies that</p>
+              <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '24px', color: '#14532d', fontWeight: '700', margin: '2px 0 0' }}>{answers.name || 'Participant'}</p>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>Assessed on {getReportDate()}</p>
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: scoreBand.color, marginTop: '6px' }}>{scoreBand.label}</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>out of 100</div>
+
+            {/* Right: Score Circle */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ display: 'inline-block', width: '110px', height: '110px', borderRadius: '50%', border: `6px solid ${scoreBand.color}`, background: '#f0fdf4', lineHeight: '98px', position: 'relative' }}>
+                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '40px', fontWeight: '800', color: scoreBand.color }}>{finalScore}</span>
+              </div>
+              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '16px', fontWeight: '700', color: scoreBand.color, marginTop: '4px' }}>{scoreBand.label}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280' }}>out of 100</div>
+            </div>
           </div>
 
-          {/* Category Scores - compact grid */}
-          <div style={{ margin: '16px 0', padding: '14px 16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
-            <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '15px', color: '#14532d', margin: '0 0 10px', textAlign: 'center' }}>Category Performance</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
-              {Object.entries(categoryScores).map(([cat, score]) => (
-                <div key={cat} style={{ textAlign: 'center', padding: '6px 4px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
-                  <div style={{ fontSize: '16px', marginBottom: '2px' }}>{getCategoryIcon(cat)}</div>
-                  <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: '2px' }}>{getCategoryLabel(cat)}</div>
-                  <div style={{ fontSize: '16px', fontWeight: '700', color: score >= 65 ? '#16a34a' : score >= 50 ? '#84cc16' : score >= 35 ? '#d97706' : '#dc2626' }}>{score}</div>
+          {/* Middle Section: 3 columns */}
+          <div style={{ display: 'flex', gap: '14px', flex: 1 }}>
+            {/* Column 1: Category Scores */}
+            <div style={{ flex: '1', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7', padding: '12px' }}>
+              <h3 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '13px', color: '#14532d', margin: '0 0 8px', textAlign: 'center', fontWeight: '600' }}>Category Performance</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                {Object.entries(categoryScores).map(([cat, score]) => (
+                  <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px', background: 'white', borderRadius: '4px', border: '1px solid #dcfce7' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontSize: '13px' }}>{getCategoryIcon(cat)}</span>
+                      <span style={{ fontSize: '10px', color: '#374151' }}>{getCategoryLabel(cat)}</span>
+                    </div>
+                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '13px', fontWeight: '700', color: score >= 65 ? '#16a34a' : score >= 50 ? '#84cc16' : score >= 35 ? '#d97706' : '#dc2626' }}>{score}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Column 2: Annual Footprint */}
+            <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7', padding: '10px', flex: 1 }}>
+                <h3 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '13px', color: '#14532d', margin: '0 0 8px', textAlign: 'center', fontWeight: '600' }}>Annual Footprint</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div style={{ textAlign: 'center', padding: '6px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                    <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>Carbon</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '16px', fontWeight: '800', color: '#14532d' }}>{annualSummary.totalPersonalCO2Tonnes}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '6px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                    <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>Water</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '16px', fontWeight: '800', color: '#14532d' }}>{annualSummary.yearlyWater}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '6px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                    <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>Electricity</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '16px', fontWeight: '800', color: '#14532d' }}>{m.yearlyUnits} kWh</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '6px', background: 'white', borderRadius: '6px', border: '1px solid #dcfce7' }}>
+                    <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase' }}>vs India Avg</div>
+                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: '700', color: m.totalCO2KgYear > 1900 ? '#dc2626' : '#16a34a' }}>{annualSummary.vsGlobalAvg}</div>
+                  </div>
                 </div>
-              ))}
+              </div>
+              {earthImpactPercent && (
+                <div style={{ textAlign: 'center', padding: '8px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                  <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Earth Impact</div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '14px', fontWeight: '800', color: '#1e40af' }}>{earthImpactPercent}%</div>
+                  <div style={{ fontSize: '8px', color: '#6b7280' }}>of India&apos;s total CO₂</div>
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Annual Footprint Summary */}
-          <div style={{ margin: '14px 0', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Carbon Footprint</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{annualSummary.totalPersonalCO2Tonnes}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>India avg: 1.9 tonnes</div>
-            </div>
-            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Water Usage</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{(m.totalWaterLitresYear / 1000).toFixed(1)} kL</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>per year</div>
-            </div>
-            <div style={{ textAlign: 'center', padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #dcfce7' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '1px' }}>Green Transport</div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: '#14532d' }}>{annualSummary.greenTransportShare}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280' }}>of your travel</div>
-            </div>
-          </div>
-
-          {/* AI Recommendations */}
-          {aiRecommendations && (
-            <div style={{ margin: '14px 0', padding: '14px 16px', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a' }}>
-              <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '15px', color: '#92400e', margin: '0 0 8px' }}>Personalized Recommendations</h3>
-              <p style={{ fontSize: '11px', color: '#78716c', lineHeight: '1.5', margin: '0 0 8px' }}>{aiRecommendations.summary}</p>
-              {aiRecommendations.immediateActions && (
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  {aiRecommendations.immediateActions.map((a, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '11px' }}>
+            {/* Column 3: Recommendations */}
+            <div style={{ flex: '1.2' }}>
+              {aiRecommendations && (
+                <div style={{ background: '#fffbeb', borderRadius: '8px', border: '1px solid #fde68a', padding: '12px', height: '100%' }}>
+                  <h3 style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '13px', color: '#92400e', margin: '0 0 8px', fontWeight: '600' }}>Key Recommendations</h3>
+                  {aiRecommendations.immediateActions && aiRecommendations.immediateActions.slice(0, 4).map((a, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', fontSize: '10px', marginBottom: '6px' }}>
                       <span style={{ color: '#16a34a', fontWeight: '800', flexShrink: 0 }}>{i + 1}.</span>
                       <div>
                         <strong style={{ color: '#14532d' }}>{a.action}</strong>
@@ -282,38 +297,28 @@ export default function Results() {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-              {aiRecommendations.weeklyImprovements && (
-                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #fde68a' }}>
-                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#92400e', marginBottom: '4px' }}>Weekly Habits to Build</div>
-                  {aiRecommendations.weeklyImprovements.map((h, i) => (
-                    <div key={i} style={{ fontSize: '11px', color: '#78716c', marginBottom: '3px' }}>• {h.habit}</div>
-                  ))}
+                  {aiRecommendations.weeklyImprovements && (
+                    <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #fde68a' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#92400e', marginBottom: '3px' }}>Weekly Habits</div>
+                      {aiRecommendations.weeklyImprovements.slice(0, 3).map((h, i) => (
+                        <div key={i} style={{ fontSize: '9px', color: '#78716c', marginBottom: '2px' }}>• {h.habit}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Key Impacts */}
-          {impactSummary.length > 0 && (
-            <div style={{ margin: '10px 0', padding: '10px 16px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
-              <h3 style={{ fontFamily: 'Playfair Display, serif', fontSize: '13px', color: '#991b1b', margin: '0 0 6px' }}>Key Environmental Impacts</h3>
-              {impactSummary.slice(0, 3).map((s, i) => (
-                <p key={i} style={{ fontSize: '10px', color: '#78716c', margin: '0 0 3px', lineHeight: '1.4' }}>• {s}</p>
-              ))}
-            </div>
-          )}
+          </div>
 
           {/* Footer */}
-          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '2px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '2px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Certificate ID: SA-{Date.now().toString(36).toUpperCase()}</div>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Data: ARAI, BEE, CEA, CPCB, CWC, IEA</div>
+              <div style={{ fontSize: '9px', color: '#9ca3af' }}>Certificate ID: SA-{Date.now().toString(36).toUpperCase()}</div>
+              <div style={{ fontSize: '9px', color: '#9ca3af' }}>Data sources: ARAI, BEE, CEA, CPCB, CWC, IEA, TANGEDCO, IPCC</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'Playfair Display, serif', fontSize: '14px', color: '#14532d', fontWeight: '600' }}>AI Sustainability Analyzer</div>
-              <div style={{ fontSize: '10px', color: '#9ca3af' }}>Powered by verified Indian environmental data</div>
+              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '13px', color: '#14532d', fontWeight: '600' }}>AI Sustainability Analyzer</div>
+              <div style={{ fontSize: '9px', color: '#9ca3af' }}>Powered by verified Indian environmental data</div>
             </div>
           </div>
         </div>

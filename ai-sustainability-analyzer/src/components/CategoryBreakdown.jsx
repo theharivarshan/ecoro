@@ -13,11 +13,11 @@ export default function CategoryBreakdown({ categoryScores }) {
               <span className="text-xl">{getCategoryIcon(cat)}</span>
               <span className="font-semibold text-sm text-gray-800">{getCategoryLabel(cat)}</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900 mb-1">{score}<span className="text-sm text-gray-400">/100</span></div>
+            <div className="text-2xl font-mono font-bold text-gray-900 mb-1">{score}<span className="text-sm text-gray-400">/100</span></div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-1">
               <div className={`h-full rounded-full ${getScoreBarColor(score)}`} style={{ width: `${score}%` }} />
             </div>
-            <div className="text-xs text-gray-400">Weight: {getCategoryWeight(cat)}%</div>
+            <div className="text-xs font-mono text-gray-400">Weight: {getCategoryWeight(cat)}%</div>
           </div>
         ))}
       </div>
